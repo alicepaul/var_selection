@@ -44,7 +44,7 @@ class tree():
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-        self.m = 3                          # Bound on betas
+        self.m = 1.5                          # Bound on betas
 
     def start_root(self, warm_start):
         # Initializes the nodes with a root node
@@ -61,7 +61,7 @@ class tree():
         root_node = Node(parent=None, zlb=[], zub=[], x=self.x, y=self.y, \
                          xi_norm=xi_norm)
         self.active_nodes['root_node'] = root_node
-        root_node.lower_solve(self.L0, self.L2, m=5, solver='l1cd',\
+        root_node.lower_solve(self.L0, self.L2, m=self.m, solver='l1cd',\
                               rel_tol=1e-4, mio_gap=0, int_tol = self.int_tol)
         root_node.upper_solve(self.L0, self.L2, self.m)
 

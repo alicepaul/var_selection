@@ -17,7 +17,8 @@ from settings import REWARD_TYPE, MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA
 
 # Memory representation of states
-Transition = namedtuple('Transition', ('state', 'reward'))
+Transition = namedtuple('Transition', 
+                        ('prev_state', 'state', 'reward'))
 
 # Deep Q Network
 class DQN(nn.Module):
@@ -37,7 +38,7 @@ class DQN(nn.Module):
         return(output)
 
 # Memory representation for our agent
-class ReplayMemory(object):
+class Memory(object):
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = deque(maxlen=capacity)
@@ -57,7 +58,7 @@ class Agent():
         self.policy_net = DQN(32, reward_type) # TODO: update sizes
         self.target_net = DQN(32, reward_type)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
-        self.memory = ReplayMemory(10000)
+        self.memory = Memory(10000)
         self.steps_done = 0
         self.reward = reward_type
 
@@ -84,64 +85,49 @@ class Agent():
                     if (T.active_nodes[node_key].z[i] < INT_EPS) or (T.active_nodes[node_key].z[i] > 1-INT_EPS):
                         continue
                     state = torch.tensor([T.get_state(node_key, support[i])], dtype=torch.float)
-                    val = self.policy_net(state)
+                    # Agent estimates usings policy network
+                    val = self.policy_net(state) 
                     if(val > best_val):
                         best_val = val
                         best_node_key = node_key
                         best_j = support[i]
 
         return(T.get_state(best_node_key, best_j), best_node_key, best_j)
-
-    def get_target(self, T):
-        # Find estimated future reward using target network
-        best_val = 0
-        if len(T.active_nodes) == 0:
-            return(0)
-        
-        for node_key in T.active_nodes:
-            support = T.active_nodes[node_key].support
-            for i in range(len(support)):
-                if (T.active_nodes[node_key].z[i] < INT_EPS) or (T.active_nodes[node_key].z[i] > 1-INT_EPS):
-                    continue
-                state = torch.tensor([T.get_state(node_key, support[i])], dtype=torch.float)
-                val = self.policy_net(state)
-                if(val > best_val):
-                    best_val = val
-
-        return(best_val)
-
-    def optimize_model(self):
+    
+    def replay_memory(self):
+        # Only Replay Memory if enough enteries in Memory
         if len(self.memory) < BATCH_SIZE:
             return
-
+        
         # Sample from our memory
         transitions = self.memory.sample(BATCH_SIZE)
         batch = Transition(*zip(*transitions))
 
-        # Concatenate our tensors
+        # Concatenate our tensors for previous states
+        prev_state_batch = torch.cat(batch.prev_state)
         state_batch = torch.cat(batch.state)
         reward_batch = torch.cat(batch.reward)
 
-        # Calculate values
-        state_action_values = torch.flatten(self.policy_net(state_batch))
+        # Predict Q-values for the previous states
+        pred_q_values = self.policy_net(prev_state_batch)
 
-        # Compute loss between our state action and expectations
+        # Compute expected Q-values based on next states and rewards
+        with torch.no_grad():
+            max_next_q_values = torch.flatten(self.target_net(state_batch))
+            targets = reward_batch + GAMMA * max_next_q_values
+
+        # Compute loss
         loss_f = nn.MSELoss()
-        if (self.reward == "bin"):
-            # Weight based on sample
-            actual = reward_batch.numpy()
-            pos = max([1, sum([actual[i]== 1 for i in range(BATCH_SIZE)])])
-            pos_weight = max([BATCH_SIZE/pos,5.0])
-            loss_f = nn.BCEWithLogitsLoss(pos_weight = torch.tensor([pos_weight], dtype = torch.float))
-            loss_f = nn.BCEWithLogitsLoss(pos_weight = torch.tensor([5], dtype = torch.float))
-        loss = loss_f(state_action_values, reward_batch)
+        loss = loss_f(pred_q_values, targets)
 
+        # Optimization
         self.optimizer.zero_grad()
         loss.backward()
 
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
-
+        
+        # Update Parameters
         self.optimizer.step()
 
 
@@ -151,12 +137,15 @@ def RL_solve(agent, x, y, l0, l2):
     fin_solving = T.start_root(None)
     iters = 0
     tot_rewards = 0
-    while (fin_solving == False) and (iters < MAX_ITERS):
 
+    # Set Beginning State
+    prev_state = torch.tensor([T.get_state('root_node', 0)], dtype=torch.float)
+
+    while (fin_solving == False) and (iters < MAX_ITERS):
         # Select and perform an action
         state, node, j = agent.select_action(T)
         state = torch.tensor([state], dtype=torch.float)
-        fin_solving, old_gap, new_gap = T.step(node, j)
+        fin_solving, old_gap, new_gap = T.step(node, j) # Add done to Transitions
 
         # Calculate reward
         bin_reward = 1
@@ -168,13 +157,16 @@ def RL_solve(agent, x, y, l0, l2):
             reward = (old_gap-new_gap)/T.initial_optimality_gap
 
         tot_rewards += bin_reward 
-        reward = torch.tensor([reward+GAMMA*agent.get_target(T)], dtype=torch.float)
+        reward = torch.tensor([reward], dtype=torch.float)
     
         # Store the transition in memory
-        agent.remember(state, reward)
+        agent.remember(prev_state, state, reward)
 
-        # Optimize the target network
-        agent.optimize_model()
+        # Set Previous State
+        prev_state = state
+
+        # Optimize the target network using replay memory
+        agent.replay_memory()
 
         iters += 1
         
