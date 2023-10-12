@@ -217,7 +217,7 @@ class tree():
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]
         curr_node.lower_solve(\
-            self.L0, self.L2, m=5, solver='l1cd', rel_tol= 1e-4, \
+            self.L0, self.L2, m=self.m, solver='l1cd', rel_tol= 1e-4, \
             mio_gap=1e-4, int_tol=self.int_tol)
         
         # Update upper bound by rounding soln
