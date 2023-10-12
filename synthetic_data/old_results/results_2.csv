@@ -1,0 +1,11 @@
+data,num_file,L0,L2,RL_iters,RL_rewards,MF_iters,MF_rewards,SAMP_iters,SAMP_rewards,SB_iters,SB_rewards
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_419.csv,1,0.6,0.0,408,27,370,24,508,24,137,18
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_343.csv,2,0.6,0.0,395,27,492,22,501,25,191,24
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_56.csv,3,0.6,0.0,405,31,746,26,573,27,480,25
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_425.csv,4,0.6,0.0,413,29,514,26,457,23,93,18
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_431.csv,5,0.6,0.0,318,25,397,26,504,25,385,23
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_357.csv,6,0.6,0.0,285,25,369,28,411,24,369,22
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_42.csv,7,0.6,0.0,241,25,268,24,294,29,125,22
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_380.csv,8,0.6,0.0,404,31,528,29,474,26,351,24
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_95.csv,9,0.6,0.0,303,31,466,30,430,30,237,28
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv,10,0.6,0.0,361,26,398,28,337,30,168,20

@@ -1,0 +1,11 @@
+data,num_file,method,L0,L2,num_iters,rewards
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_419.csv,1,RL,0.6,0.0,64,17
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_343.csv,2,RL,0.6,0.0,59,17
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_56.csv,3,RL,0.6,0.0,89,21
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_425.csv,4,RL,0.6,0.0,407,28
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_431.csv,5,RL,0.6,0.0,317,26
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_357.csv,6,RL,0.6,0.0,299,24
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_42.csv,7,RL,0.6,0.0,229,25
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_380.csv,8,RL,0.6,0.0,389,30
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_95.csv,9,RL,0.6,0.0,308,30
+x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv,10,RL,0.6,0.0,319,25
