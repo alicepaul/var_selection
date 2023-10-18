@@ -12,9 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque, namedtuple
-import tree
-from settings import REWARD_TYPE, MAX_ITERS, EPSILON_START, \
-     EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA
+import tree 
+from tree import get_state_pairs
+from settings import MAX_ITERS, EPSILON_START, \
+     EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
 
 # Memory representation of states
 Transition = namedtuple('Transition', 
@@ -22,25 +23,21 @@ Transition = namedtuple('Transition',
 
 # Deep Q Network
 class DQN(nn.Module):
-    def __init__(self, input_size, reward_type = "cont"):
+    def __init__(self, input_size):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(input_size, 32)
         self.fc2 = nn.Linear(32, 16)
         self.fc3 = nn.Linear(16, 1)
-        self.reward = reward_type
 
     def forward(self, x):
         output1 = F.relu(self.fc1(x))
         output2 = F.relu(self.fc2(output1))
         output = F.relu(self.fc3(output2))
-        if (self.reward == "bin"):
-            output = torch.sigmoid(output)
         return(output)
 
-# Memory representation for our agent
+# Memory for our agent
 class Memory(object):
     def __init__(self, capacity):
-        self.capacity = capacity
         self.memory = deque(maxlen=capacity)
 
     def push(self, *args):
@@ -54,23 +51,37 @@ class Memory(object):
 
 # Agent that performs, remembers and learns actions
 class Agent():
-    def __init__(self, reward_type = "cont"):
-        self.policy_net = DQN(32, reward_type) # TODO: update sizes
-        self.target_net = DQN(32, reward_type)
+    def __init__(self):
+        self.policy_net = DQN(32) # TODO: update sizes
+        self.target_net = DQN(32)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.memory = Memory(10000)
-        self.steps_done = 0
-        self.reward = reward_type
+        self.episodes_played = 0
+        self.epsilon = EPSILON_START
+        self.epsilon_decay = EPSILON_DECAY
+        self.epsilon_end = EPSILON_END
 
-    def remember(self, *args):
-        self.memory.push(*args)
+    def remember_tree(self, tree):
+        # Set rewards
+        total_reward = 0
+
+        # Call tree function to create all state to state pairs
+        state_pairs = get_state_pairs(tree.root) # [TODO] function returns list of prev, curr, reward
+        for prev, curr, r in state_pairs:
+            total_reward += r
+
+            # Add state pairs and reward to memory 
+            self.memory.push(prev, curr, r)
+        
+        # Update target network
+        if self.episodes_played % TARGET_UPDATE == 0:
+            self.target_net.load_state_dict(self.policy_net.state_dict())
+
+        return total_reward
 
     def select_action(self, T):
-        # Select an action according to an epsilon greedy approach
-        sample = random.random()
-        epsilon_threshold = EPSILON_END + (EPSILON_START - EPSILON_END) * math.exp(-1. * self.steps_done / EPSILON_DECAY)
-        self.steps_done += 1
-        if (sample < epsilon_threshold):
+        # Select an action according to an epsilon greedy approach        
+        if (random.random() < self.epsilon):
             # max fraction branching
             best_node_key, best_j = T.max_frac_branch()
         else:
@@ -92,7 +103,7 @@ class Agent():
                         best_node_key = node_key
                         best_j = support[i]
 
-        return(T.get_state(best_node_key, best_j), best_node_key, best_j)
+        return(best_node_key, best_j)
     
     def replay_memory(self):
         # Only Replay Memory if enough enteries in Memory
@@ -126,6 +137,9 @@ class Agent():
 
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
+
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
         
         # Update Parameters
         self.optimizer.step()
@@ -136,41 +150,37 @@ def RL_solve(agent, x, y, l0, l2):
     T = tree.tree(x,y,l0,l2)
     fin_solving = T.start_root(None)
     iters = 0
-    tot_rewards = 0
-
-    # Set Beginning State
-    prev_state = torch.tensor([T.get_state('root_node', 0)], dtype=torch.float)
 
     while (fin_solving == False) and (iters < MAX_ITERS):
         # Select and perform an action
-        state, node, j = agent.select_action(T)
-        state = torch.tensor([state], dtype=torch.float)
-        fin_solving, old_gap, new_gap = T.step(node, j) # Add done to Transitions
-
-        # Calculate reward
-        bin_reward = 1
-        if old_gap == new_gap:
-            bin_reward = 0
-
-        reward = bin_reward
-        if (REWARD_TYPE == "cont"):
-            reward = (old_gap-new_gap)/T.initial_optimality_gap
-
-        tot_rewards += bin_reward 
-        reward = torch.tensor([reward], dtype=torch.float)
-    
-        # Store the transition in memory
-        agent.remember(prev_state, state, reward)
-
-        # Set Previous State
-        prev_state = state
+        node, j = agent.select_action(T)
+        fin_solving, old_gap, new_gap = T.step(node, j) 
 
         # Optimize the target network using replay memory
         agent.replay_memory()
 
         iters += 1
+
+    # Store tree in memory and get total reward for tree
+    tot_reward = agent.remember_tree(T)
+
+    # Update number of episodes Agent has played
+    agent.episodes_played += 1
         
-    return(iters, tot_rewards, len(T.best_beta))
+    return(iters, 0, T)
 
 
 
+# import numpy as np 
+# 
+# Using Synthetic Data
+# x_file = 'synthetic_data/batch_1/x_gen_syn_n3_p10_corr0.5_snr5.0_seed2022_0.csv'
+# y_file = 'synthetic_data/batch_1/y_gen_syn_n3_p10_corr0.5_snr5.0_seed2022_0.csv'
+# x = np.loadtxt(x_file, delimiter = ",")
+# y = np.loadtxt(y_file, delimiter=",")
+# l0 = .01
+# l2 = 0
+# 
+# agent = Agent()
+# 
+# RL_solve(agent, x, y, l0, l2)

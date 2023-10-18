@@ -47,7 +47,7 @@ class tree():
         self.m = 1.5                        # Bound on betas
 
         # Tree Structure 
-        self.tree = None
+        self.root = None
 
     def start_root(self, warm_start):
         # Initializes the nodes with a root node
@@ -61,7 +61,7 @@ class tree():
 
         # Initialize root node
         xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
-        root_node = Node(parent=None, zlb=[], zub=[], x=self.x, y=self.y, \
+        root_node = Node(parent=None, node_key='root_node', zlb=[], zub=[], x=self.x, y=self.y, \
                          xi_norm=xi_norm)
         self.active_nodes['root_node'] = root_node
         root_node.lower_solve(self.L0, self.L2, m=self.m, solver='l1cd',\
@@ -80,8 +80,7 @@ class tree():
         self.tree_stats = self.get_tree_stats()
 
         # Start Tree
-        root_node.state = self.get_state('root_node', 0)
-        self.tree = root_node
+        self.root = self.active_nodes['root_node']
 
         # Return if done
         if self.int_sol(root_node) or (self.optimality_gap <= self.gap_tol):
@@ -243,6 +242,10 @@ class tree():
         
 
     def step(self, branch_node_key, j):
+        # Add State to Node in Tree
+        parent_node = self.find_node_by_key(branch_node_key)
+        parent_node.state = self.get_state(branch_node_key, j)
+
         # Branches for beta_j in node branch_node_key and returns True if done
         self.step_counter += 1
 
@@ -253,15 +256,14 @@ class tree():
         
         # Branch to beta_j to be 0
         node_name_1 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_1] = Node(parent=branch_node, zlb=new_zlb, zub=branch_node.zub, \
+        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1, zlb=new_zlb, zub=branch_node.zub, \
                                             x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
         self.node_counter += 1
 
         # Branch to beta_j to be 1
         node_name_2 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_2] = Node(parent=branch_node, zlb=branch_node.zlb, zub=new_zub, \
+        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2, zlb=branch_node.zlb, zub=new_zub, \
                                             x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
-        del self.active_nodes[branch_node_key]
         self.node_counter += 1
 
         # Solve relaxations in new nodes
@@ -283,14 +285,67 @@ class tree():
         # Update stats
         self.tree_stats = self.get_tree_stats()
 
+        # Store Child Nodes in Tree
+        parent_node.assign_children(self.active_nodes[node_name_1], \
+                                   self.active_nodes[node_name_2])
+        del self.active_nodes[branch_node_key] # Delete Parent from Active Nodes
+
         # Return True if solved or within tolerance and False otherwise
         if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
             return(True, old_gap, self.optimality_gap)
         return(False, old_gap, self.optimality_gap)
     
-    def parse_tree(self):
-        # [TODO]
-        pass
+    def find_node_by_key(self, node_key):
+        return self._find_recursive(self.root, node_key)
+
+    def _find_recursive(self, node, node_key):
+        # Searches tree for node with node_key
+        if not node:
+            return None
+
+        if node.node_key == node_key:
+            return node
+        
+        # Search the left subtree
+        if node.left:
+            left_search = self._find_recursive(node.left, node_key)
+            if left_search:
+                return left_search
+
+        # Search the right subtree
+        if node.right:
+            right_search = self._find_recursive(node.right, node_key)
+            if right_search:
+                return right_search
+
+        return None
+    
+
+def get_state_pairs(node):
+    '''
+    Recursively collect edges where both parent and child have a state.
+    '''
+    ### [TODO] Add rewards, question since states are only assigned to nodes that have 
+    # split we do not include leaves so how should we do rewards?
+
+    result = []
+
+    if not node:
+        return result
+
+    # Check left child
+    if node.left and node.state is not None and node.left.state is not None:
+        result.append((node.state, node.left.state))
+        result.extend(get_state_pairs(node.left))
+
+    # Check right child
+    if node.right and node.state is not None and node.right.state is not None:
+        result.append((node.state, node.right.state))
+        result.extend(get_state_pairs(node.right))
+
+    return result
+
+
 
 def branch_and_bound(x, y, l0, l2, branch="max"):
     T = tree(x,y,l0,l2)

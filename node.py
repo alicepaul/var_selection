@@ -25,7 +25,7 @@ def upper_bound_solve(x, y, l0, l2, m, support):
 
 
 class Node:
-    def __init__(self, parent, zlb: list, zub: list, **kwargs):
+    def __init__(self, parent, node_key, zlb: list, zub: list, **kwargs):
         """
         Initialize a Node
 
@@ -33,6 +33,9 @@ class Node:
         ----------
         parent: Node or None
             the parent Node
+        
+        node_key: Str
+            Name associated with Node, used for Node Lookup
         
         zlb: np.array
             p x 1 array representing the lower bound of the integer variables z
@@ -100,9 +103,10 @@ class Node:
                 self.gs_xb = parent.gs_xb.copy()
 
         # Each node will store it's children's nodes and current state
+        self.node_key = node_key
         self.is_leaf = True
-        self.l_child = None
-        self.r_child = None
+        self.left = None
+        self.right = None
         self.state = None
 
     def lower_solve(self, l0, l2, m, solver, rel_tol, int_tol=1e-6,
@@ -150,18 +154,19 @@ class Node:
         return upper_bound
     
     ### Tree Stucture Code ###
-    def node_info(self):
-        '''
-        Returns:
-            is.leaf: Whether Node is a leaf
-            state: State associated with Node
-        '''
-        return self.is_leaf, self.state
+
+    def get_info(self):
+        return f'node_key: {self.node_key}, is_leaf: {self.is_leaf}, ' \
+            f'state: {self.state}'
     
     def assign_children(self, left_child=None, right_child=None):
         '''
         Function assigns children nodes to parent and 
         parent is set to no longer leaf
+
+        inputs:
+            left_child: Node associated with Left Child
+            right_child: Node associated with Right Child
         '''
         if left_child is not None:
             self.left = left_child
@@ -172,8 +177,8 @@ class Node:
             self.is_leaf = False
 
     def __str__(self):
-        return f'level: {self.level}, is_leaf: {self.is_leaf}, ' \
-            f'has left child : {self.l_child != None}, has right child: {self.r_child != None}'
+        return f'level: {self.level}, lower cost: {self.primal_value}, ' \
+            f'upper cost: {self.upper_bound}'
 
     ### END ###
 
