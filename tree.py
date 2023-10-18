@@ -208,6 +208,18 @@ class tree():
             if self.active_nodes[node_key].primal_value > self.best_int:
                 del self.active_nodes[node_key]
 
+                # Prune Tree
+                parent = self.find_node_by_key(
+                    self.find_node_by_key(node_key).parent_key)
+                
+                if parent.left and parent.left.node_key == node_key:
+                    parent.left = None
+                else:
+                    parent.right = None
+                # Update Leaf Status
+                if not parent.left and not parent.right:
+                    parent.is_leaf = True
+
     def update_lower_bound(self):
         # Update the best lower bound over all active nodes
         if len(self.active_nodes) == 0:
@@ -239,6 +251,18 @@ class tree():
                 self.best_int = curr_node.primal_value
                 self.best_beta = curr_node.primal_beta
             del self.active_nodes[node_key]
+
+            # Prune Tree
+            parent = self.find_node_by_key(
+                self.find_node_by_key(node_key).parent_key)
+            
+            if parent.left and parent.left.node_key == node_key:
+                parent.left = None
+            else:
+                parent.right = None
+            # Update Leaf Status
+            if not parent.left and not parent.right:
+                parent.is_leaf = True
         
 
     def step(self, branch_node_key, j):
@@ -266,6 +290,11 @@ class tree():
                                             x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
         self.node_counter += 1
 
+        # Store Child Nodes in Tree
+        parent_node.assign_children(self.active_nodes[node_name_1], \
+                                   self.active_nodes[node_name_2])
+        del self.active_nodes[branch_node_key] # Delete Parent from Active Nodes
+
         # Solve relaxations in new nodes
         past_upper = self.best_int
         self.solve_node(node_name_1)
@@ -284,11 +313,6 @@ class tree():
 
         # Update stats
         self.tree_stats = self.get_tree_stats()
-
-        # Store Child Nodes in Tree
-        parent_node.assign_children(self.active_nodes[node_name_1], \
-                                   self.active_nodes[node_name_2])
-        del self.active_nodes[branch_node_key] # Delete Parent from Active Nodes
 
         # Return True if solved or within tolerance and False otherwise
         if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
@@ -323,28 +347,37 @@ class tree():
 
 def get_state_pairs(node):
     '''
-    Recursively collect edges where both parent and child have a state.
-    '''
-    ### [TODO] Add rewards, question since states are only assigned to nodes that have 
-    # split we do not include leaves so how should we do rewards?
+    Recursively collect tree edges, parent and child states pairs
 
-    result = []
+    input:
+        node: node of tree
+    return:
+        list of (previous state, state, reward) tuples
+    '''
+    pairs = []
 
     if not node:
-        return result
+        return pairs
 
     # Check left child
-    if node.left and node.state is not None and node.left.state is not None:
-        result.append((node.state, node.left.state))
-        result.extend(get_state_pairs(node.left))
+    if node.left:
+        if node.left.is_leaf:
+            # If child is leaf reward is -1
+            pairs.append((node.state, node.left.state, -1))
+        else:
+            pairs.append((node.state, node.left.state, 0))
+        pairs.extend(get_state_pairs(node.left))
 
     # Check right child
-    if node.right and node.state is not None and node.right.state is not None:
-        result.append((node.state, node.right.state))
-        result.extend(get_state_pairs(node.right))
+    if node.right:
+        if node.right.is_leaf:
+            # If child is leaf reward is -1
+            pairs.append((node.state, node.right.state, -1))
+        else:
+            pairs.append((node.state, node.right.state, 0))
+        pairs.extend(get_state_pairs(node.right))
 
-    return result
-
+    return pairs
 
 
 def branch_and_bound(x, y, l0, l2, branch="max"):
@@ -386,7 +419,7 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
         if old_gap > new_gap:
             num_pos += 1
         iters += 1
-    return(iters, num_pos)
+    return(iters, num_pos, T)
         
 #x = np.loadtxt("/Users/alice/Dropbox/var_selection/synthetic_data/batch_2/x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv", delimiter = ",")
 #y = np.loadtxt("/Users/alice/Dropbox/var_selection/synthetic_data/batch_2/y_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv", delimiter=",")

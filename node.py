@@ -104,6 +104,7 @@ class Node:
 
         # Each node will store it's children's nodes and current state
         self.node_key = node_key
+        self.parent_key = None
         self.is_leaf = True
         self.left = None
         self.right = None
@@ -170,10 +171,12 @@ class Node:
         '''
         if left_child is not None:
             self.left = left_child
+            self.left.parent_key = self.node_key
             self.is_leaf = False
         
         if right_child is not None:
             self.right = right_child
+            self.right.parent_key = self.node_key
             self.is_leaf = False
 
     def __str__(self):

@@ -71,7 +71,9 @@ class Agent():
             total_reward += r
 
             # Add state pairs and reward to memory 
-            self.memory.push(prev, curr, r)
+            self.memory.push(torch.tensor([prev], dtype=torch.float), 
+                             torch.tensor([curr], dtype=torch.float), 
+                             torch.tensor([r], dtype=torch.float))
         
         # Update target network
         if self.episodes_played % TARGET_UPDATE == 0:
@@ -138,7 +140,7 @@ class Agent():
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
 
-        if self.epsilon > self.epsilon_min:
+        if self.epsilon > self.epsilon_end:
             self.epsilon *= self.epsilon_decay
         
         # Update Parameters
@@ -167,20 +169,4 @@ def RL_solve(agent, x, y, l0, l2):
     # Update number of episodes Agent has played
     agent.episodes_played += 1
         
-    return(iters, 0, T)
-
-
-
-# import numpy as np 
-# 
-# Using Synthetic Data
-# x_file = 'synthetic_data/batch_1/x_gen_syn_n3_p10_corr0.5_snr5.0_seed2022_0.csv'
-# y_file = 'synthetic_data/batch_1/y_gen_syn_n3_p10_corr0.5_snr5.0_seed2022_0.csv'
-# x = np.loadtxt(x_file, delimiter = ",")
-# y = np.loadtxt(y_file, delimiter=",")
-# l0 = .01
-# l2 = 0
-# 
-# agent = Agent()
-# 
-# RL_solve(agent, x, y, l0, l2)
+    return(iters, tot_reward, T)
