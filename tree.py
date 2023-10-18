@@ -7,7 +7,7 @@
 
 import numpy as np
 from copy import deepcopy
-from l0bnb.node import Node, upper_bound_solve
+from node import Node, upper_bound_solve
 from random import choice, choices
 import math
 from operator import attrgetter
@@ -44,7 +44,10 @@ class tree():
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-        self.m = 1.5                          # Bound on betas
+        self.m = 1.5                        # Bound on betas
+
+        # Tree Structure 
+        self.tree = None
 
     def start_root(self, warm_start):
         # Initializes the nodes with a root node
@@ -75,6 +78,10 @@ class tree():
         self.optimality_gap = self.initial_optimality_gap
         self.node_counter += 1
         self.tree_stats = self.get_tree_stats()
+
+        # Start Tree
+        root_node.state = self.get_state('root_node', 0)
+        self.tree = root_node
 
         # Return if done
         if self.int_sol(root_node) or (self.optimality_gap <= self.gap_tol):
@@ -280,6 +287,10 @@ class tree():
         if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
             return(True, old_gap, self.optimality_gap)
         return(False, old_gap, self.optimality_gap)
+    
+    def parse_tree(self):
+        # [TODO]
+        pass
 
 def branch_and_bound(x, y, l0, l2, branch="max"):
     T = tree(x,y,l0,l2)
