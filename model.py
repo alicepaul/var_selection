@@ -61,7 +61,7 @@ class Agent():
         self.epsilon_decay = EPSILON_DECAY
         self.epsilon_end = EPSILON_END
 
-    def remember_tree(self, tree):
+    def retrobranch(self, tree):
         # Set rewards
         total_reward = 0
 
@@ -162,7 +162,7 @@ def RL_solve(agent, x, y, l0, l2):
         iters += 1
 
     # Store tree in memory and get total reward for tree
-    tot_reward = agent.remember_tree(T)
+    tot_reward = agent.retrobranch(T)
 
     # Update number of episodes Agent has played
     agent.episodes_played += 1
