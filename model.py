@@ -6,6 +6,7 @@
 #Copyright (c) 2018 Algonomicon LLC
 
 import random
+import numpy as np
 import math
 import torch
 import torch.nn as nn
@@ -71,8 +72,8 @@ class Agent():
             total_reward += r
 
             # Add state pairs and reward to memory 
-            self.memory.push(torch.tensor([prev], dtype=torch.float), 
-                             torch.tensor([curr], dtype=torch.float), 
+            self.memory.push(torch.tensor(np.array([prev]), dtype=torch.float), 
+                             torch.tensor(np.array([curr]), dtype=torch.float), 
                              torch.tensor([r], dtype=torch.float))
         
         # Update target network
@@ -97,7 +98,7 @@ class Agent():
                 for i in range(len(support)):
                     if (T.active_nodes[node_key].z[i] < INT_EPS) or (T.active_nodes[node_key].z[i] > 1-INT_EPS):
                         continue
-                    state = torch.tensor([T.get_state(node_key, support[i])], dtype=torch.float)
+                    state = torch.tensor(np.array([T.get_state(node_key, support[i])]), dtype=torch.float)
                     # Agent estimates usings policy network
                     val = self.policy_net(state) 
                     if(val > best_val):
@@ -123,6 +124,7 @@ class Agent():
 
         # Predict Q-values for the previous states
         pred_q_values = self.policy_net(prev_state_batch)
+        pred_q_values = pred_q_values.squeeze(1) # Match shape of targets
 
         # Compute expected Q-values based on next states and rewards
         with torch.no_grad():
