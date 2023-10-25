@@ -36,7 +36,8 @@ class tree():
         self.tree_stats = None
 
         # Algorithm variables - also reset with set_root below
-        self.active_nodes = dict()      # Dictionary current nodes
+        self.active_nodes = dict()      # Current Nodes
+        self.all_nodes = dict()         # All Nodes
         self.step_counter = 0           # Number branch steps taken
         self.node_counter = 0
         self.best_int = math.inf        # Best integer solution value
@@ -64,6 +65,7 @@ class tree():
         root_node = Node(parent=None, node_key='root_node', zlb=[], zub=[], x=self.x, y=self.y, \
                          xi_norm=xi_norm)
         self.active_nodes['root_node'] = root_node
+        self.all_nodes['root_node'] = root_node
         root_node.lower_solve(self.L0, self.L2, m=self.m, solver='l1cd',\
                               rel_tol=1e-4, mio_gap=0, int_tol = self.int_tol)
         root_node.upper_solve(self.L0, self.L2, self.m)
@@ -133,7 +135,7 @@ class tree():
 
     def get_node_stats(self, node_key):
         # Returns summary stats for a given node
-        node = self.active_nodes[node_key]
+        node = self.all_nodes[node_key]
         len_support = len(node.support) if node.support else 0
         has_lb = (self.lower_bound == node.primal_value)
         has_ub = (self.best_int == node.upper_bound)
@@ -148,7 +150,7 @@ class tree():
 
     def get_var_stats(self, node_key, j):
         # Returns summary stats for branching on j in a node
-        node = self.active_nodes[node_key]
+        node = self.all_nodes[node_key]
         index = [i for i in range(len(node.support)) if node.support[i] == j][0]
         var_stats = np.array([node.primal_beta[index],
                           node.z[index]])
@@ -190,7 +192,6 @@ class tree():
                 best_index = support[potential_j]
         return(best_node_key, best_index)
 
-
     def int_sol(self, node):
         # Check if within tolerance to an integer solution
         for i in node.support:
@@ -207,18 +208,6 @@ class tree():
         for node_key in node_keys:
             if self.active_nodes[node_key].primal_value > self.best_int:
                 del self.active_nodes[node_key]
-
-                # Prune Tree
-                parent = self.find_node_by_key(
-                    self.find_node_by_key(node_key).parent_key)
-                
-                if parent.left and parent.left.node_key == node_key:
-                    parent.left = None
-                else:
-                    parent.right = None
-                # Update Leaf Status
-                if not parent.left and not parent.right:
-                    parent.is_leaf = True
 
     def update_lower_bound(self):
         # Update the best lower bound over all active nodes
@@ -252,23 +241,10 @@ class tree():
                 self.best_beta = curr_node.primal_beta
             del self.active_nodes[node_key]
 
-            # Prune Tree
-            parent = self.find_node_by_key(
-                self.find_node_by_key(node_key).parent_key)
-            
-            if parent.left and parent.left.node_key == node_key:
-                parent.left = None
-            else:
-                parent.right = None
-            # Update Leaf Status
-            if not parent.left and not parent.right:
-                parent.is_leaf = True
-        
-
     def step(self, branch_node_key, j):
         # Add State to Node in Tree
-        parent_node = self.find_node_by_key(branch_node_key)
-        parent_node.state = self.get_state(branch_node_key, j)
+        branch_node = self.active_nodes[branch_node_key]
+        branch_node.state = self.get_state(branch_node_key, j)
 
         # Branches for beta_j in node branch_node_key and returns True if done
         self.step_counter += 1
@@ -290,8 +266,12 @@ class tree():
                                             x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
         self.node_counter += 1
 
+        # Store New Nodes in all_nodes Dictionary
+        self.all_nodes[node_name_1] = self.active_nodes[node_name_1]
+        self.all_nodes[node_name_2] = self.active_nodes[node_name_2]
+
         # Store Child Nodes in Tree
-        parent_node.assign_children(self.active_nodes[node_name_1], \
+        branch_node.assign_children(self.active_nodes[node_name_1], \
                                    self.active_nodes[node_name_2])
         del self.active_nodes[branch_node_key] # Delete Parent from Active Nodes
 
@@ -318,32 +298,7 @@ class tree():
         if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
             return(True, old_gap, self.optimality_gap)
         return(False, old_gap, self.optimality_gap)
-    
-    def find_node_by_key(self, node_key):
-        return self._find_recursive(self.root, node_key)
 
-    def _find_recursive(self, node, node_key):
-        # Searches tree for node with node_key
-        if not node:
-            return None
-
-        if node.node_key == node_key:
-            return node
-        
-        # Search the left subtree
-        if node.left:
-            left_search = self._find_recursive(node.left, node_key)
-            if left_search:
-                return left_search
-
-        # Search the right subtree
-        if node.right:
-            right_search = self._find_recursive(node.right, node_key)
-            if right_search:
-                return right_search
-
-        return None
-    
 
 def get_state_pairs(node):
     '''
@@ -362,19 +317,19 @@ def get_state_pairs(node):
     # Check left child
     if node.left:
         if node.left.is_leaf:
-            # If child is leaf reward is -1
-            pairs.append((node.state, node.left.state, -1))
-        else:
+            # If child is leaf reward is 0
             pairs.append((node.state, node.left.state, 0))
+        else:
+            pairs.append((node.state, node.left.state, -1))
         pairs.extend(get_state_pairs(node.left))
 
     # Check right child
     if node.right:
         if node.right.is_leaf:
             # If child is leaf reward is -1
-            pairs.append((node.state, node.right.state, -1))
-        else:
             pairs.append((node.state, node.right.state, 0))
+        else:
+            pairs.append((node.state, node.right.state, -1))
         pairs.extend(get_state_pairs(node.right))
 
     return pairs
@@ -410,7 +365,6 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
         else:
             node = choice(list(T.active_nodes))
             j = choice(T.active_nodes[node].support)
-            
         
         # Take a step
         fin_solving, old_gap, new_gap = T.step(node, j)
@@ -419,6 +373,16 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
         if old_gap > new_gap:
             num_pos += 1
         iters += 1
+
+    # Complete Tree (Get's states for leaf nodes)
+    for node in T.all_nodes.values():
+        if node.state is None:
+            z = node.z
+            support = node.support
+            diff = [min(1-z[i], z[i]-0) for i in range(len(support))]
+            j = support[np.argmax(diff)]
+            node.state = T.get_state(node.node_key, j)
+
     return(iters, num_pos, T)
         
 #x = np.loadtxt("/Users/alice/Dropbox/var_selection/synthetic_data/batch_2/x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv", delimiter = ",")

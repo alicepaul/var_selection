@@ -63,11 +63,28 @@ class Agent():
         self.epsilon_end = EPSILON_END
 
     def retrobranch(self, tree):
+        # Complete Tree -- Get (Non-Optimal) States for Leaf Nodes
+        for node in tree.all_nodes.values():
+            if node.state is None:
+                support = node.support
+                best_val = -math.inf
+                best_j = 0
+                for i in range(len(support)):
+                    state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
+                                         dtype=torch.float)
+                    # Agent estimates using policy network
+                    val = self.policy_net(state) 
+                    if val > best_val:
+                        best_val = val
+                        best_j = support[i]
+            
+                node.state = tree.get_state(node.node_key, best_j)
+
         # Set rewards
         total_reward = 0
 
         # Call tree function to create all state to state pairs
-        state_pairs = get_state_pairs(tree.root) # [TODO] function returns list of prev, curr, reward
+        state_pairs = get_state_pairs(tree.root)
         for prev, curr, r in state_pairs:
             total_reward += r
 
