@@ -6,14 +6,70 @@ import math
 from operator import attrgetter
 from settings import MAX_ITERS
 
-## Example problem class - problem specific aspect of our code
+## implement max cut
 class Problem:
-    def __init__(self, x, y, l0, l2):
-        # Problem definition variables
+    def __init__(self, x, y, l0, l2, m):
         self.x = x
         self.y = y
-        self.L0 = l0
-        self.L2 = l2
+        self.l0 = l0
+        self.l2 = l2
+        self.m = m 
+
+    def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,
+                          tree_upper_bound=None, mio_gap=None, cd_max_itr=100,
+                          kkt_max_itr=100):
+        if solver == 'l1cd':
+            sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=node.zlb,
+                           zub=node.zub, xi_norm=node.xi_norm, rel_tol=rel_tol,
+                           warm_start=node.warm_start, r=node.r,
+                           tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
+                           gs_xtr=node.gs_xtr, gs_xb=node.gs_xb,
+                           cd_max_itr=cd_max_itr, kkt_max_itr=kkt_max_itr)
+            node.primal_value = sol.primal_value
+            node.dual_value = sol.dual_value
+            node.primal_beta = sol.primal_beta
+            node.z = sol.z
+            node.support = sol.support
+            node.r = sol.r
+            node.gs_xtr = sol.gs_xtr
+            node.gs_xb = sol.gs_xb
+        else:
+            full_zlb = np.zeros(self.x.shape[1])
+            full_zlb[node.zlb] = 1
+            full_zub = np.ones(self.x.shape[1])
+            full_zub[node.zub] = 0
+            if solver == 'gurobi':
+                primal_beta, z, self.primal_value, self.dual_value = \
+                    l0gurobi(self.x, self.y, self.l0, self.l2, self.m, full_zlb, full_zub)
+            elif solver == 'mosek':
+                primal_beta, z, self.primal_value, self.dual_value = \
+                    l0mosek(self.x, self.y, self.l0,self.l2, self.m, full_zlb, full_zub)
+            else:
+                raise ValueError(f'solver {solver} not supported')
+
+            node.support = list(np.where(abs(primal_beta) > int_tol)[0])
+            node.primal_beta = primal_beta[self.support]
+            node.z = z[node.support]
+        return node.primal_value, node.dual_value
+
+    def upper_solve(self, node):
+        if len(node.support) != 0:
+            x_support = self.x[:, node.support]
+            x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
+            x_upper = np.concatenate((x_support, x_ridge), axis=0)
+            y_upper = np.concatenate(( self.y, np.zeros(len(node.support))), axis=0)
+            # TODO: account for intercept later
+            res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m,  self.m))
+            upper_bound = res.cost +  self.l0 * len(node.support)
+            upper_beta = res.x
+        else:
+            upper_bound = 0.5 * np.linalg.norm(self.y) ** 2
+            upper_beta = []
+        
+        node.upper_bound = upper_bound
+        node.upper_beta = upper_beta
+        return upper_bound
+
 
 def reverse_lookup(d, val):
   for key in d:
@@ -22,14 +78,14 @@ def reverse_lookup(d, val):
 
 
 class tree():
-    def __init__(self, problem, int_tol=1e-4, gap_tol=1e-4):
+    def __init__(self, x, y, l0, l2, int_tol=1e-4, gap_tol=1e-4):
         # Initialize a branch and bound tree for a given problem
-        self.problem = problem  # Instance of Problem class
+                
         # Problem definition variables
-        self.x = problem.x
-        self.y = problem.y
-        self.L0 = problem.l0
-        self.L2 = problem.l2
+        self.x = x
+        self.y = y
+        self.L0 = l0
+        self.L2 = l2
         self.int_tol = int_tol
         self.gap_tol = gap_tol
 
@@ -43,7 +99,7 @@ class tree():
         self.step_counter = 0           # Number branch steps taken
         self.node_counter = 0
         self.best_int = math.inf        # Best integer solution value
-        self.best_beta = None           # Best integer solution betas
+        self.candidate_sol = None           # Best integer solution betas
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
@@ -68,15 +124,14 @@ class tree():
                          xi_norm=xi_norm)
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
-        root_node.lower_solve(self.L0, self.L2, m=self.m, solver='l1cd',\
-                              rel_tol=1e-4, mio_gap=0, int_tol = self.int_tol)
-        root_node.upper_solve(self.L0, self.L2, self.m)
+        self.problem.lower_solve(root_node)
+        self.problem.upper_solve(root_node)
 
         # Update bounds and opt gap
         self.lower_bound = root_node.primal_value
         if (root_node.upper_bound < self.best_int):
             self.best_int = root_node.upper_bound
-            self.best_beta = root_node.upper_beta
+            self.candidate_sol = root_node.upper_beta
         self.initial_optimality_gap = \
             (self.best_int - self.lower_bound) / self.lower_bound
         self.optimality_gap = self.initial_optimality_gap
@@ -96,7 +151,7 @@ class tree():
         info = {'step_count': self.step_counter,
                 'node_count': self.node_counter,
                 'best_primal_value': self.best_int,
-                'beta': self.best_beta,
+                'candidate_sol': self.candidate_sol,
                 'lower_bound': self.lower_bound,
                 'init_opt_gap' : self.initial_optimality_gap,
                 'opt_gap': self.optimality_gap}
@@ -135,28 +190,6 @@ class tree():
                                
         return(tree_stats)
 
-    def get_node_stats(self, node_key):
-        # Returns summary stats for a given node
-        node = self.all_nodes[node_key]
-        len_support = len(node.support) if node.support else 0
-        has_lb = (self.lower_bound == node.primal_value)
-        has_ub = (self.best_int == node.upper_bound)
-        node_stats = np.array([len(node.zub),
-                               len(node.zlb),
-                               node.primal_value,
-                               node.level,
-                               len_support,
-                               has_lb,
-                               has_ub])
-        return(node_stats)
-
-    def get_var_stats(self, node_key, j):
-        # Returns summary stats for branching on j in a node
-        node = self.all_nodes[node_key]
-        index = [i for i in range(len(node.support)) if node.support[i] == j][0]
-        var_stats = np.array([node.primal_beta[index],
-                          node.z[index]])
-        return(var_stats)
 
     def get_state(self, node_key, j):
         # Concatenates overall state for possible branch
@@ -233,14 +266,14 @@ class tree():
         curr_upper_bound = curr_node.upper_solve(self.L0, self.L2, self.m)
         if curr_upper_bound < self.best_int:
             self.best_int = curr_upper_bound
-            self.best_beta = curr_node.upper_beta
+            self.candidate_sol = curr_node.upper_beta
             upper_bound_updated = True
 
         # Check if an integer solution
         if self.int_sol(curr_node):
             if curr_node.primal_value < self.best_int:
                 self.best_int = curr_node.primal_value
-                self.best_beta = curr_node.primal_beta
+                self.candidate_sol = curr_node.primal_beta
             del self.active_nodes[node_key]
 
     def step(self, branch_node_key, j):
@@ -386,3 +419,4 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
             node.state = T.get_state(node.node_key, j)
 
     return(iters, num_pos, T)
+
