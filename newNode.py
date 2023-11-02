@@ -4,8 +4,6 @@ from copy import deepcopy
 from scipy import optimize as sci_opt
 import numpy as np
 
-from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
-
 
 class Node:
     def __init__(self, parent, node_key, zlb: list, zub: list, **kwargs):
@@ -47,8 +45,6 @@ class Node:
             be inherited from the parent node
         """
         
-        self.x = kwargs.get('x', parent.x if parent else None)
-        self.y = kwargs.get('y', parent.y if parent else None)
         self.xi_norm = kwargs.get('xi_norm',
                                   parent.xi_norm if parent else None)
 

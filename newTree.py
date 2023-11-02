@@ -5,15 +5,19 @@ from random import choice, choices
 import math
 from operator import attrgetter
 from settings import MAX_ITERS
+from scipy import optimize as sci_opt
+from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
 
 ## implement max cut
 class Problem:
-    def __init__(self, x, y, l0, l2, m):
+    def __init__(self, x, y, l0, l2, m, int_tol=1e-4, gap_tol=1e-4):
         self.x = x
         self.y = y
         self.l0 = l0
         self.l2 = l2
         self.m = m 
+        self.int_tol = int_tol
+        self.gap_tol = gap_tol
 
     def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,
                           tree_upper_bound=None, mio_gap=None, cd_max_itr=100,
@@ -78,17 +82,12 @@ def reverse_lookup(d, val):
 
 
 class tree():
-    def __init__(self, x, y, l0, l2, int_tol=1e-4, gap_tol=1e-4):
+    def __init__(self, problem):
+        ## X_i norm is needed for every single node - yes, while calling upper and lower solve
+        ## Does X_i norm change? - No
+        ## move x_i norm to problem - line below
+        ## xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
         # Initialize a branch and bound tree for a given problem
-                
-        # Problem definition variables
-        self.x = x
-        self.y = y
-        self.L0 = l0
-        self.L2 = l2
-        self.int_tol = int_tol
-        self.gap_tol = gap_tol
-
         # Stats for the state
         self.prob_stats, self.var_stats = self.get_static_stats()
         self.tree_stats = None
@@ -120,8 +119,7 @@ class tree():
 
         # Initialize root node
         xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
-        root_node = Node(parent=None, node_key='root_node', zlb=[], zub=[], x=self.x, y=self.y, \
-                         xi_norm=xi_norm)
+        root_node = Node(parent=None, node_key='root_node')
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
         self.problem.lower_solve(root_node)
