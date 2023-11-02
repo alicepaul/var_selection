@@ -149,8 +149,14 @@ class tree():
         return(node_stats)
 
     def get_var_stats(self, node_key, j):
-        # Returns summary stats for branching on j in a node
         node = self.all_nodes[node_key]
+
+        # Case when node has no support (used for retrobranching)
+        if len(node.support) == 0: 
+            print('No Support')
+            return np.array([0,0])
+        
+        # Returns summary stats for branching on j in a node
         index = [i for i in range(len(node.support)) if node.support[i] == j][0]
         var_stats = np.array([node.primal_beta[index],
                           node.z[index]])
@@ -341,7 +347,7 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
 
     fin_solving = False
     iters = 0
-    num_pos = 0
+
     while (fin_solving == False) and (iters < MAX_ITERS):
         # Find node based on branching strategy
         if branch == "max":
@@ -369,9 +375,6 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
         # Take a step
         fin_solving, old_gap, new_gap = T.step(node, j)
 
-        # Update iterations and number positive
-        if old_gap > new_gap:
-            num_pos += 1
         iters += 1
 
     # Complete Tree (Get's states for leaf nodes)
@@ -383,7 +386,10 @@ def branch_and_bound(x, y, l0, l2, branch="max"):
             j = support[np.argmax(diff)]
             node.state = T.get_state(node.node_key, j)
 
-    return(iters, num_pos, T)
+    # Reward for RL model is equivalent to -iters + 1
+    reward = -iters + 1
+
+    return(iters, reward)
         
 #x = np.loadtxt("/Users/alice/Dropbox/var_selection/synthetic_data/batch_2/x_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv", delimiter = ",")
 #y = np.loadtxt("/Users/alice/Dropbox/var_selection/synthetic_data/batch_2/y_gen_syn_n3_p50_corr0.5_snr5.0_seed2022_394.csv", delimiter=",")

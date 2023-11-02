@@ -53,7 +53,7 @@ class Memory(object):
 # Agent that performs, remembers and learns actions
 class Agent():
     def __init__(self):
-        self.policy_net = DQN(32) # TODO: update sizes
+        self.policy_net = DQN(32)
         self.target_net = DQN(32)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.memory = Memory(10000)
@@ -65,18 +65,29 @@ class Agent():
     def retrobranch(self, tree):
         # Complete Tree -- Get (Non-Optimal) States for Leaf Nodes
         for node in tree.all_nodes.values():
-            if node.state is None:
-                support = node.support
-                best_val = -math.inf
-                best_j = 0
-                for i in range(len(support)):
-                    state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
-                                         dtype=torch.float)
-                    # Agent estimates using policy network
-                    val = self.policy_net(state) 
-                    if val > best_val:
-                        best_val = val
-                        best_j = support[i]
+            if node.state is None: 
+                if len(node.support) == 0:
+                    best_j = 0
+                # Select an action according to an epsilon greedy approach 
+                elif (random.random() < self.epsilon):
+                    z = node.z
+                    support = node.support
+                    diff = [min(1-z[i], z[i]-0) for i in range(len(support))]
+                    best_j = support[np.argmax(diff)]
+                
+                else:
+                    support = node.support
+                    best_val = -math.inf
+                    best_j = 0
+
+                    for i in range(len(support)):
+                        state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
+                                            dtype=torch.float)
+                        # Agent estimates using policy network
+                        val = self.policy_net(state) 
+                        if val > best_val:
+                            best_val = val
+                            best_j = support[i]
             
                 node.state = tree.get_state(node.node_key, best_j)
 
@@ -188,4 +199,4 @@ def RL_solve(agent, x, y, l0, l2):
     # Update number of episodes Agent has played
     agent.episodes_played += 1
         
-    return(iters, tot_reward, T)
+    return(iters, tot_reward, len(T.best_beta))

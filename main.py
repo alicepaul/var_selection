@@ -6,10 +6,10 @@ from random import shuffle
 import tree
 import torch
 from itertools import count
-from settings import TARGET_UPDATE, DATA_BATCH, REWARD_TYPE, MAX_ITERS
+from settings import TARGET_UPDATE, DATA_BATCH, MAX_ITERS
 
 # Directory of problems
-my_path = "/Users/alice/Dropbox/var_selection/synthetic_data/batch_"+str(DATA_BATCH)
+my_path = "synthetic_data/batch_"+str(DATA_BATCH)
 files = [f for f in os.listdir(my_path) if os.path.isfile(os.path.join(my_path,f)) and f[0]=="x"]
 shuffle(files)
 num_files = 0
@@ -17,13 +17,12 @@ num_files = 0
 # Results
 column_names = ["data", "num_file", "L0", "L2", "NNZ", 
                 "RL_iters", "RL_rewards", 
-                "MF_iters", "MF_rewards"] #, 
-                #"SAMP_iters", "SAMP_rewards",
-                #"SB_iters", "SB_rewards"]
+                "MF_iters", "MF_rewards",
+                "SB_iters", "SB_rewards"]
 res = pd.DataFrame(columns = column_names)
 
 # Agent RL
-agent = model.Agent(REWARD_TYPE)
+agent = model.Agent()
 
 for f in files:
     print(f)
@@ -43,15 +42,13 @@ for f in files:
         # Solve with agent and branch and bound directly
         RL_iters, RL_rewards, nnz = model.RL_solve(agent, x, y, l0, l2)
         MF_iters, MF_rewards = tree.branch_and_bound(x, y, l0, l2, "max")
-        #SAMP_iters, SAMP_rewards = tree.branch_and_bound(x, y, l0, l2, "sample")
-        #SB_iters, SB_rewards = tree.branch_and_bound(x, y, l0, l2, "strong_branch")
+        SB_iters, SB_rewards = tree.branch_and_bound(x, y, l0, l2, "strong_branch")
 
         # Add results to file
         data = [[f, num_files, l0, l2, nnz,
                  RL_iters, RL_rewards,
-                 MF_iters, MF_rewards]] #,
-                 #SAMP_iters, SAMP_rewards,
-                 #SB_iters, SB_rewards]]
+                 MF_iters, MF_rewards,
+                 SB_iters, SB_rewards]]
         new_row = pd.DataFrame(data=data, columns=column_names)
         res = pd.concat([res, new_row], ignore_index=True)
     num_files += 1
@@ -60,5 +57,5 @@ for f in files:
     if num_files % TARGET_UPDATE == 0:
         agent.target_net.load_state_dict(agent.policy_net.state_dict())
 
-res.to_csv("/Users/alice/Dropbox/var_selection/synthetic_data/results_"+str(DATA_BATCH)+".csv", index=False)
-torch.save(agent.policy_net.state_dict(), "/Users/alice/Dropbox/var_selection/synthetic_data/model_"+str(DATA_BATCH)+".pt")
+res.to_csv("synthetic_data/results_"+str(DATA_BATCH)+".csv", index=False)
+# torch.save(agent.policy_net.state_dict(), "synthetic_data/model_"+str(DATA_BATCH)+".pt")
