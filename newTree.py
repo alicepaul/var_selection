@@ -11,6 +11,7 @@ from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
 ## implement max cut
 class Problem:
     def __init__(self, x, y, l0, l2, m, int_tol=1e-4, gap_tol=1e-4):
+        self.xi_norm =  np.linalg.norm(self.x, axis=0) ** 2 ## for current usage
         self.x = x
         self.y = y
         self.l0 = l0
@@ -73,6 +74,22 @@ class Problem:
         node.upper_bound = upper_bound
         node.upper_beta = upper_beta
         return upper_bound
+    
+    def upper_bound_solve(self, node):
+        if len(node.support) != 0:
+            x_support = self.x[:, node.support]
+            x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
+            x_upper = np.concatenate((x_support, x_ridge), axis=0)
+            y_upper = np.concatenate((y, np.zeros(len(node.support))), axis=0)
+            # TODO: account for intercept later
+            res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m, self.m))
+            upper_bound = res.cost + self.l0 * len(node.support)
+            upper_beta = res.x
+        else:
+            upper_bound = 0.5 * np.linalg.norm(self.y) ** 2
+            upper_beta = []
+        return upper_bound, upper_beta
+    
 
 
 def reverse_lookup(d, val):
@@ -114,11 +131,10 @@ class tree():
         if (warm_start is not None):
             support = np.nonzero(warm_start)[0]
             self.best_int_primal, self.best_int_beta = \
-                                  upper_bound_solve(self.x, self.y, self.L0,
-                                                    self.L2, self.m, support)
+                                  upper_bound_solve(root_node)
 
         # Initialize root node
-        xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
+        
         root_node = Node(parent=None, node_key='root_node')
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node

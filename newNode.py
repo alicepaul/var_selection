@@ -45,9 +45,6 @@ class Node:
             be inherited from the parent node
         """
         
-        self.xi_norm = kwargs.get('xi_norm',
-                                  parent.xi_norm if parent else None)
-
         self.parent_dual = parent.dual_value if parent else None
         self.parent_primal = parent.primal_value if parent else None
 
@@ -73,6 +70,7 @@ class Node:
         self.primal_beta = None
 
         # Gradient screening params.
+        ## ask about their usage
         self.gs_xtr = None
         self.gs_xb = None
         if parent:
