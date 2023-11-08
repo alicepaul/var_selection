@@ -11,8 +11,8 @@ from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
 ## implement max cut
 class Problem:
     def __init__(self, x, y, l0, l2, m, int_tol=1e-4, gap_tol=1e-4):
-        self.xi_norm =  np.linalg.norm(self.x, axis=0) ** 2 ## for current usage
         self.x = x
+        self.xi_norm =  np.linalg.norm(self.x, axis=0) ** 2 ## for current usage
         self.y = y
         self.l0 = l0
         self.l2 = l2
@@ -62,7 +62,7 @@ class Problem:
             x_support = self.x[:, node.support]
             x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
             x_upper = np.concatenate((x_support, x_ridge), axis=0)
-            y_upper = np.concatenate(( self.y, np.zeros(len(node.support))), axis=0)
+            y_upper = np.concatenate((self.y, np.zeros(len(node.support))), axis=0)
             # TODO: account for intercept later
             res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m,  self.m))
             upper_bound = res.cost +  self.l0 * len(node.support)
@@ -80,7 +80,7 @@ class Problem:
             x_support = self.x[:, node.support]
             x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
             x_upper = np.concatenate((x_support, x_ridge), axis=0)
-            y_upper = np.concatenate((y, np.zeros(len(node.support))), axis=0)
+            y_upper = np.concatenate((self.y, np.zeros(len(node.support))), axis=0)
             # TODO: account for intercept later
             res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m, self.m))
             upper_bound = res.cost + self.l0 * len(node.support)
@@ -272,12 +272,10 @@ class tree():
     def solve_node(self, node_key):
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]
-        curr_node.lower_solve(\
-            self.L0, self.L2, m=self.m, solver='l1cd', rel_tol= 1e-4, \
-            mio_gap=1e-4, int_tol=self.int_tol)
+        self.problem.lower_solve(curr_node)
         
         # Update upper bound by rounding soln
-        curr_upper_bound = curr_node.upper_solve(self.L0, self.L2, self.m)
+        curr_upper_bound = self.problem.upper_solve(curr_node)
         if curr_upper_bound < self.best_int:
             self.best_int = curr_upper_bound
             self.candidate_sol = curr_node.upper_beta
@@ -348,6 +346,56 @@ class tree():
             return(True, old_gap, self.optimality_gap)
         return(False, old_gap, self.optimality_gap)
 
+    def branch_and_bound(self, branch="max"):
+        self.start_root(None)
+
+        fin_solving = False
+        iters = 0
+        num_pos = 0
+        while (not fin_solving) and (iters < MAX_ITERS):
+            # Find node based on branching strategy
+            if branch == "max":
+                node_key, j = self.max_frac_branch()
+            elif branch == "sample":
+                frac_dict = self.get_frac_branchs()
+                vals = list(frac_dict.values())
+                node_key, j = choices(list(frac_dict.keys()), weights=vals)[0]
+            elif branch == "strong_branch":
+                frac_dict = self.get_frac_branchs()
+                vals = list(frac_dict.values())
+                pot_branches = choices(list(frac_dict.keys()), k=5, weights=vals)
+                best_val = 0
+                node_key, j = pot_branches[0]
+                for node_key_i, j_i in pot_branches:
+                    T_prime = deepcopy(self)
+                    fin_solving, old_gap, new_gap = T_prime.step(node_key_i, j_i)
+                    if old_gap - new_gap > best_val:
+                        best_val = old_gap - new_gap
+                        node_key, j = node_key_i, j_i
+            else:
+                node_key = choice(list(self.active_nodes))
+                j = choice(self.active_nodes[node_key].support)
+
+            # Take a step
+            fin_solving, old_gap, new_gap = self.step(node_key, j)
+
+            # Update iterations and number positive
+            if old_gap > new_gap:
+                num_pos += 1
+            iters += 1
+
+        # Complete Tree (Get's states for leaf nodes)
+        for node in self.all_nodes.values():
+            if node.state is None:
+                z = node.z
+                support = node.support
+                diff = [min(1 - z[i], z[i] - 0) for i in range(len(support))]
+                j = support[np.argmax(diff)]
+                node.state = self.get_state(node.node_key, j)
+
+        return iters, num_pos, self
+
+# The get_state_pairs function can remain unchanged if it's still required.
 
 def get_state_pairs(node):
     '''
@@ -383,54 +431,4 @@ def get_state_pairs(node):
 
     return pairs
 
-
-def branch_and_bound(x, y, l0, l2, branch="max"):
-    T = tree(x,y,l0,l2)
-    T.start_root(None)
-
-    fin_solving = False
-    iters = 0
-    num_pos = 0
-    while (fin_solving == False) and (iters < MAX_ITERS):
-        # Find node based on branching strategy
-        if branch == "max":
-            node, j = T.max_frac_branch()
-        elif branch == "sample":
-            frac_dict = T.get_frac_branchs()
-            vals = list(frac_dict.values())
-            node, j = choices(list(frac_dict.keys()), weights = vals)[0]
-        elif branch == "strong_branch":
-            frac_dict = T.get_frac_branchs()
-            vals = frac_dict.values()
-            pot_branches = choices(list(frac_dict.keys()), k=5, weights = vals)
-            best_val = 0
-            node, j = pot_branches[0]
-            for node_key_i, j_i in pot_branches:
-                T_prime = deepcopy(T)
-                fin_solving, old_gap, new_gap = T_prime.step(node_key_i, j_i)
-                if old_gap-new_gap > best_val:
-                    best_val = old_gap-new_gap
-                    node, j = node_key_i, j_i
-        else:
-            node = choice(list(T.active_nodes))
-            j = choice(T.active_nodes[node].support)
-        
-        # Take a step
-        fin_solving, old_gap, new_gap = T.step(node, j)
-
-        # Update iterations and number positive
-        if old_gap > new_gap:
-            num_pos += 1
-        iters += 1
-
-    # Complete Tree (Get's states for leaf nodes)
-    for node in T.all_nodes.values():
-        if node.state is None:
-            z = node.z
-            support = node.support
-            diff = [min(1-z[i], z[i]-0) for i in range(len(support))]
-            j = support[np.argmax(diff)]
-            node.state = T.get_state(node.node_key, j)
-
-    return(iters, num_pos, T)
-
+    
