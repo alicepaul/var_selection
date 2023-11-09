@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from node import Node, upper_bound_solve
+from newNode import Node
 from random import choice, choices
 import math
 from operator import attrgetter
@@ -10,7 +10,7 @@ from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
 
 ## implement max cut
 class Problem:
-    def __init__(self, x, y, l0, l2, m, int_tol=1e-4, gap_tol=1e-4):
+    def __init__(self, x, y, l0, l2, m = 1.5, int_tol=1e-4, gap_tol=1e-4):
         self.x = x
         self.xi_norm =  np.linalg.norm(self.x, axis=0) ** 2 ## for current usage
         self.y = y
@@ -19,13 +19,15 @@ class Problem:
         self.m = m 
         self.int_tol = int_tol
         self.gap_tol = gap_tol
-
+        self.zlb = list
+        self.zub = list
+        
     def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,
                           tree_upper_bound=None, mio_gap=None, cd_max_itr=100,
                           kkt_max_itr=100):
         if solver == 'l1cd':
-            sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=node.zlb,
-                           zub=node.zub, xi_norm=node.xi_norm, rel_tol=rel_tol,
+            sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=self.zlb,
+                           zub=self.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
                            warm_start=node.warm_start, r=node.r,
                            tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
                            gs_xtr=node.gs_xtr, gs_xb=node.gs_xb,
@@ -40,9 +42,9 @@ class Problem:
             node.gs_xb = sol.gs_xb
         else:
             full_zlb = np.zeros(self.x.shape[1])
-            full_zlb[node.zlb] = 1
+            full_zlb[self.zlb] = 1
             full_zub = np.ones(self.x.shape[1])
-            full_zub[node.zub] = 0
+            full_zub[self.zub] = 0
             if solver == 'gurobi':
                 primal_beta, z, self.primal_value, self.dual_value = \
                     l0gurobi(self.x, self.y, self.l0, self.l2, self.m, full_zlb, full_zub)
@@ -99,13 +101,14 @@ def reverse_lookup(d, val):
 
 
 class tree():
-    def __init__(self, problem):
+    def __init__(self, problem2):
         ## X_i norm is needed for every single node - yes, while calling upper and lower solve
         ## Does X_i norm change? - No
         ## move x_i norm to problem - line below
         ## xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
         # Initialize a branch and bound tree for a given problem
         # Stats for the state
+        self.problem = problem2
         self.prob_stats, self.var_stats = self.get_static_stats()
         self.tree_stats = None
 
@@ -119,7 +122,7 @@ class tree():
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-        self.m = 1.5                        # Bound on betas
+        # self.m = 1.5                        # Bound on betas
 
         # Tree Structure 
         self.root = None
@@ -173,8 +176,8 @@ class tree():
 
     def get_static_stats(self):
         # Returns static stats plus a matrix of static stats for each variable
-        all_x_dot_y = np.matmul(self.x.T, self.y)
-        cov = self.x.shape[0] * np.cov(self.x, rowvar=False, bias=True)
+        all_x_dot_y = np.matmul(self.problem.x.T, self.problem.y)
+        cov = self.problem.x.shape[0] * np.cov(self.problem.x, rowvar=False, bias=True)
 
         # get quantiles from cov
         q = cov.shape[0]
@@ -183,12 +186,12 @@ class tree():
             np.quantile(all_x_dot_y,[0,0.25,0.5,0.75,1]))
 
         # for each node store dot product and cov
-        p = self.x.shape[1]
+        p = self.problem.x.shape[1]
         var_stats = np.zeros((p,6))
         for i in range(p):
             x_i_cov = np.partition(cov[i,:], -1)[:-1]
             var_stats[i,0:5] = np.quantile(x_i_cov,[0,0.25,0.5,0.75,1])
-            var_stats[i,5] = np.dot(self.x[:,i], self.y)
+            var_stats[i,5] = np.dot(self.problem.x[:,i], self.problem.y)
 
         return(prob_stats, var_stats)
 
@@ -244,7 +247,7 @@ class tree():
     def int_sol(self, node):
         # Check if within tolerance to an integer solution
         for i in node.support:
-            if i not in node.zlb and i not in node.zub:
+            if i not in self.problem.zlb and i not in self.problem.zub:
                 #beta_i = node.primal_beta[node.support.index(i)]
                 z_i = node.z[node.support.index(i)]
                 residual = min(z_i, 1-z_i)
@@ -298,19 +301,17 @@ class tree():
 
         # Create two child nodes
         branch_node = self.active_nodes[branch_node_key]
-        new_zlb = branch_node.zlb+[j]
-        new_zub = branch_node.zub+[j]
+        new_zlb =self.problem.zlb+[j]
+        new_zub = self.problem.zub+[j]
         
         # Branch to beta_j to be 0
         node_name_1 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1, zlb=new_zlb, zub=branch_node.zub, \
-                                            x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
+        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1)
         self.node_counter += 1
 
         # Branch to beta_j to be 1
         node_name_2 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2, zlb=branch_node.zlb, zub=new_zub, \
-                                            x=branch_node.x, y=branch_node.y, xi_norm=branch_node.xi_norm)
+        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2)
         self.node_counter += 1
 
         # Store New Nodes in all_nodes Dictionary
