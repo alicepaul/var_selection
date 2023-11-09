@@ -1,6 +1,5 @@
 # Taken from https://github.com/alisaab/l0bnb/tree/master
 
-from copy import deepcopy
 from scipy import optimize as sci_opt
 import numpy as np
 
@@ -17,38 +16,12 @@ class Node:
         
         node_key: Str
             Name associated with Node, used for Node Lookup
-        
-        zlb: np.array
-            p x 1 array representing the lower bound of the integer variables z
-        zub: np.array
-            p x 1 array representing the upper bound of the integer variables z
 
-        Other Parameters
-        ----------------
-        x: np.array
-            The data matrix (n x p). If not specified the data will be
-            inherited from the parent node
-        y: np.array
-            The data vector (n x 1). If not specified the data will be
-            inherited from the parent node
-        xi_xi: np.array
-            The norm of each column in x (p x 1). If not specified the data
-            will be inherited from the parent node
-        l0: float
-            The zeroth norm coefficient. If not specified the data will
-            be inherited from the parent node
-        l2: float
-            The second norm coefficient. If not specified the data will
-            be inherited from the parent node
-        m: float
-            The bound for the features (\beta). If not specified the data will
-            be inherited from the parent node
         """
         
         self.parent_dual = parent.dual_value if parent else None
         self.parent_primal = parent.primal_value if parent else None
 
-        self.r = deepcopy(parent.r) if parent else None
         if parent:
             self.warm_start = \
                 {i: j for i, j in zip(parent.support, parent.primal_beta)}
@@ -56,7 +29,6 @@ class Node:
             self.warm_start = None
 
         self.level = parent.level + 1 if parent else 0
-
         self.z = None
 
         self.upper_bound = None
@@ -64,18 +36,8 @@ class Node:
         self.dual_value = None
 
         self.support = None
-        self.upper_beta = None
+        self.upper_z = None
         self.primal_beta = None
-
-        # Gradient screening params.
-        ## ask about their usage
-        self.gs_xtr = None
-        self.gs_xb = None
-        if parent:
-            if parent.gs_xtr is not None:
-                self.gs_xtr = parent.gs_xtr.copy()
-            if parent.gs_xb is not None:
-                self.gs_xb = parent.gs_xb.copy()
 
         # Each node will store it's children's nodes and current state
         self.node_key = node_key

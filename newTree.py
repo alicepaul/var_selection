@@ -8,8 +8,23 @@ from settings import MAX_ITERS
 from scipy import optimize as sci_opt
 from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
 
-## implement max cut
 class Problem:
+    """
+    A class designed for a branch and bound algorithm to solve optimization problems, 
+    containing methods for solving lower and upper bounds and calculating various statistics.
+
+    Attributes:
+        x (numpy.ndarray): Input matrix (features).
+        y (numpy.ndarray): Output vector (target variable).
+        l0 (float): Coefficient for the L0 norm regularization term.
+        l2 (float): Coefficient for the L2 norm regularization term.
+        m (float): A constant used in some calculations. Defaults to 1.5.
+        int_tol (float): Tolerance for interpreting float as integer in optimization. Defaults to 1e-4.
+        gap_tol (float): Tolerance for the gap in optimization process. Defaults to 1e-4.
+        zlb (list): Lower bound for some optimization methods. Initialized as empty list.
+        zub (list): Upper bound for some optimization methods. Initialized as empty list.
+        xi_norm (numpy.ndarray): Stores the squared L2 norm of x.
+    """
     def __init__(self, x, y, l0, l2, m = 1.5, int_tol=1e-4, gap_tol=1e-4):
         self.x = x
         self.xi_norm =  np.linalg.norm(self.x, axis=0) ** 2 ## for current usage
@@ -19,27 +34,45 @@ class Problem:
         self.m = m 
         self.int_tol = int_tol
         self.gap_tol = gap_tol
-        self.zlb = list
-        self.zub = list
+        self.zlb = []
+        self.zub = []
+        self.gs_xtr = None
+        self.gs_xb = None
+        self.r = None
         
-    def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,
-                          tree_upper_bound=None, mio_gap=None, cd_max_itr=100,
-                          kkt_max_itr=100):
+    def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,tree_upper_bound=None, mio_gap=None, cd_max_itr=100, kkt_max_itr=100):
+        """
+        Solves the lower bound problem for a given node in the branch and bound tree.
+
+        Parameters:
+            node (Node): The current node in the branch and bound tree.
+            solver (str): The type of solver to use ('l1cd', 'gurobi', 'mosek', etc.). Defaults to 'l1cd'.
+            rel_tol (float): Relative tolerance for the solver. Defaults to 1e-4.
+            int_tol (float): Tolerance for interpreting float as integer in optimization. Defaults to 1e-6.
+            tree_upper_bound (float, optional): Upper bound of the tree.
+            mio_gap (float, optional): Gap for mixed integer optimization.
+            cd_max_itr (int): Maximum iterations for coordinate descent. Defaults to 100.
+            kkt_max_itr (int): Maximum iterations for KKT conditions. Defaults to 100.
+
+        Returns:
+            float: The primal value of the solution.
+            float: The dual value of the solution.
+        """
         if solver == 'l1cd':
             sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=self.zlb,
                            zub=self.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
-                           warm_start=node.warm_start, r=node.r,
+                           warm_start=node.warm_start, r=self.r,
                            tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
-                           gs_xtr=node.gs_xtr, gs_xb=node.gs_xb,
+                           gs_xtr=self.gs_xtr, gs_xb=self.gs_xb,
                            cd_max_itr=cd_max_itr, kkt_max_itr=kkt_max_itr)
             node.primal_value = sol.primal_value
             node.dual_value = sol.dual_value
             node.primal_beta = sol.primal_beta
             node.z = sol.z
             node.support = sol.support
-            node.r = sol.r
-            node.gs_xtr = sol.gs_xtr
-            node.gs_xb = sol.gs_xb
+            self.r = sol.r
+            self.gs_xtr = sol.gs_xtr
+            self.gs_xb = sol.gs_xb
         else:
             full_zlb = np.zeros(self.x.shape[1])
             full_zlb[self.zlb] = 1
@@ -55,11 +88,20 @@ class Problem:
                 raise ValueError(f'solver {solver} not supported')
 
             node.support = list(np.where(abs(primal_beta) > int_tol)[0])
-            node.primal_beta = primal_beta[self.support]
+            node.primal_beta = primal_beta[node.support]
             node.z = z[node.support]
         return node.primal_value, node.dual_value
 
     def upper_solve(self, node):
+        """
+        Solves the upper bound problem for a given node.
+
+        Parameters:
+            node (Node): The current node in the branch and bound tree.
+
+        Returns:
+            float: The calculated upper bound.
+        """
         if len(node.support) != 0:
             x_support = self.x[:, node.support]
             x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
@@ -68,16 +110,26 @@ class Problem:
             # TODO: account for intercept later
             res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m,  self.m))
             upper_bound = res.cost +  self.l0 * len(node.support)
-            upper_beta = res.x
+            upper_z = res.x
         else:
             upper_bound = 0.5 * np.linalg.norm(self.y) ** 2
-            upper_beta = []
+            upper_z = []
         
         node.upper_bound = upper_bound
-        node.upper_beta = upper_beta
+        node.upper_z = upper_z
         return upper_bound
     
     def upper_bound_solve(self, node):
+        """
+        Computes the upper bound and corresponding beta values for a given node.
+
+        Parameters:
+            node (Node): The current node in the branch and bound tree.
+
+        Returns:
+            float: The computed upper bound.
+            numpy.ndarray: The coefficients corresponding to this upper bound.
+        """
         if len(node.support) != 0:
             x_support = self.x[:, node.support]
             x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
@@ -86,13 +138,34 @@ class Problem:
             # TODO: account for intercept later
             res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m, self.m))
             upper_bound = res.cost + self.l0 * len(node.support)
-            upper_beta = res.x
+            upper_z = res.x
         else:
             upper_bound = 0.5 * np.linalg.norm(self.y) ** 2
-            upper_beta = []
-        return upper_bound, upper_beta
+            upper_z = []
+        return upper_bound, upper_z
     
+    def get_static_stats(self):
+        """
+        Computes and returns static statistics related to the problem.
 
+        Returns:
+            numpy.ndarray: Problem-level statistics.
+            numpy.ndarray: Variable-level statistics.
+        """
+        all_x_dot_y = np.matmul(self.x.T, self.y)
+        cov = self.x.shape[0] * np.cov(self.x, rowvar=False, bias=True)
+        q = cov.shape[0]
+        cov_flat = np.partition(cov.flatten(), kth=-q)[:-q]
+        prob_stats = np.append(np.quantile(cov_flat, [0, 0.25, 0.5, 0.75, 1]), 
+                               np.quantile(all_x_dot_y, [0, 0.25, 0.5, 0.75, 1]))
+        p = self.x.shape[1]
+        var_stats = np.zeros((p, 6))
+        for i in range(p):
+            x_i_cov = np.partition(cov[i, :], -1)[:-1]
+            var_stats[i, 0:5] = np.quantile(x_i_cov, [0, 0.25, 0.5, 0.75, 1])
+            var_stats[i, 5] = np.dot(self.x[:, i], self.y)
+
+        return prob_stats, var_stats
 
 def reverse_lookup(d, val):
   for key in d:
@@ -101,15 +174,9 @@ def reverse_lookup(d, val):
 
 
 class tree():
-    def __init__(self, problem2):
-        ## X_i norm is needed for every single node - yes, while calling upper and lower solve
-        ## Does X_i norm change? - No
-        ## move x_i norm to problem - line below
-        ## xi_norm =  np.linalg.norm(self.x, axis=0) ** 2
-        # Initialize a branch and bound tree for a given problem
-        # Stats for the state
-        self.problem = problem2
-        self.prob_stats, self.var_stats = self.get_static_stats()
+    def __init__(self, problem):
+        self.problem = problem
+        self.prob_stats, self.var_stats = self.problem.get_static_stats()
         self.tree_stats = None
 
         # Algorithm variables - also reset with set_root below
@@ -122,14 +189,11 @@ class tree():
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-        # self.m = 1.5                        # Bound on betas
 
-        # Tree Structure 
         self.root = None
 
     def start_root(self, warm_start):
         # Initializes the nodes with a root node
-
         # Use warm start for upper bound
         if (warm_start is not None):
             support = np.nonzero(warm_start)[0]
@@ -137,7 +201,6 @@ class tree():
                                   upper_bound_solve(root_node)
 
         # Initialize root node
-        
         root_node = Node(parent=None, node_key='root_node')
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
@@ -148,7 +211,7 @@ class tree():
         self.lower_bound = root_node.primal_value
         if (root_node.upper_bound < self.best_int):
             self.best_int = root_node.upper_bound
-            self.candidate_sol = root_node.upper_beta
+            self.candidate_sol = root_node.upper_z
         self.initial_optimality_gap = \
             (self.best_int - self.lower_bound) / self.lower_bound
         self.optimality_gap = self.initial_optimality_gap
@@ -174,26 +237,7 @@ class tree():
                 'opt_gap': self.optimality_gap}
         return(info)
 
-    def get_static_stats(self):
-        # Returns static stats plus a matrix of static stats for each variable
-        all_x_dot_y = np.matmul(self.problem.x.T, self.problem.y)
-        cov = self.problem.x.shape[0] * np.cov(self.problem.x, rowvar=False, bias=True)
 
-        # get quantiles from cov
-        q = cov.shape[0]
-        cov_flat = np.partition(cov.flatten(), kth=-q)[:-q]
-        prob_stats = np.append(np.quantile(cov_flat, [0, 0.25, 0.5, 0.75, 1]), \
-            np.quantile(all_x_dot_y,[0,0.25,0.5,0.75,1]))
-
-        # for each node store dot product and cov
-        p = self.problem.x.shape[1]
-        var_stats = np.zeros((p,6))
-        for i in range(p):
-            x_i_cov = np.partition(cov[i,:], -1)[:-1]
-            var_stats[i,0:5] = np.quantile(x_i_cov,[0,0.25,0.5,0.75,1])
-            var_stats[i,5] = np.dot(self.problem.x[:,i], self.problem.y)
-
-        return(prob_stats, var_stats)
 
     def get_tree_stats(self):
         # Returns summary statisitics that describe the set of all active nodes
@@ -281,7 +325,7 @@ class tree():
         curr_upper_bound = self.problem.upper_solve(curr_node)
         if curr_upper_bound < self.best_int:
             self.best_int = curr_upper_bound
-            self.candidate_sol = curr_node.upper_beta
+            self.candidate_sol = curr_node.upper_z
             upper_bound_updated = True
 
         # Check if an integer solution
@@ -301,8 +345,8 @@ class tree():
 
         # Create two child nodes
         branch_node = self.active_nodes[branch_node_key]
-        new_zlb =self.problem.zlb+[j]
-        new_zub = self.problem.zub+[j]
+        self.problem.zlb =self.problem.zlb+[j]
+        self.problem.zub = self.problem.zub+[j]
         
         # Branch to beta_j to be 0
         node_name_1 = f'node_{self.node_counter}'
