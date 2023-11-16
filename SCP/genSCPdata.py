@@ -44,10 +44,10 @@ def generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_siz
     return universe, x
 
 # Usage
-num_universe_items = 50  # Total number of items in the universe
-num_sets = 20            # Total number of sets
-min_set_size = 3         # Minimum number of items in each set
-max_set_size = 10        # Maximum number of items in each set
+num_universe_items = 100  # Total number of items in the universe
+num_sets = 50            # Total number of sets
+min_set_size = 5         # Minimum number of items in each set
+max_set_size = 30        # Maximum number of items in each set
 
 universe, x = generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_size)
 

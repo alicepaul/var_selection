@@ -135,10 +135,10 @@ def generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_siz
 
 
 
-num_universe_items = 50
-num_sets = 20
-min_set_size = 3
-max_set_size = 10
+num_universe_items = 100
+num_sets = 50
+min_set_size = 5
+max_set_size = 15
 
 universe, x = generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_size)
 
