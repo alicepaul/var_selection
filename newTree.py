@@ -34,8 +34,6 @@ class Problem:
         self.m = m 
         self.int_tol = int_tol
         self.gap_tol = gap_tol
-        self.zlb = []
-        self.zub = []
         self.gs_xtr = None
         self.gs_xb = None
         self.r = None
@@ -59,8 +57,8 @@ class Problem:
             float: The dual value of the solution.
         """
         if solver == 'l1cd':
-            sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=self.zlb,
-                           zub=self.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
+            sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=node.zlb,
+                           zub=node.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
                            warm_start=node.warm_start, r=self.r,
                            tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
                            gs_xtr=self.gs_xtr, gs_xb=self.gs_xb,
@@ -75,9 +73,9 @@ class Problem:
             self.gs_xb = sol.gs_xb
         else:
             full_zlb = np.zeros(self.x.shape[1])
-            full_zlb[self.zlb] = 1
+            full_zlb[node.zlb] = 1
             full_zub = np.ones(self.x.shape[1])
-            full_zub[self.zub] = 0
+            full_zub[node.zub] = 0
             if solver == 'gurobi':
                 primal_beta, z, self.primal_value, self.dual_value = \
                     l0gurobi(self.x, self.y, self.l0, self.l2, self.m, full_zlb, full_zub)
@@ -119,7 +117,7 @@ class Problem:
         node.upper_z = upper_z
         return upper_bound
     
-    def upper_bound_solve(self, node):
+    def upper_bound_solve(self, support):
         """
         Computes the upper bound and corresponding beta values for a given node.
 
@@ -130,14 +128,14 @@ class Problem:
             float: The computed upper bound.
             numpy.ndarray: The coefficients corresponding to this upper bound.
         """
-        if len(node.support) != 0:
-            x_support = self.x[:, node.support]
-            x_ridge = np.sqrt(2 * self.l2) * np.identity(len(node.support))
+        if len(support) != 0:
+            x_support = self.x[:, support]
+            x_ridge = np.sqrt(2 * self.l2) * np.identity(len(support))
             x_upper = np.concatenate((x_support, x_ridge), axis=0)
-            y_upper = np.concatenate((self.y, np.zeros(len(node.support))), axis=0)
+            y_upper = np.concatenate((self.y, np.zeros(len(support))), axis=0)
             # TODO: account for intercept later
             res = sci_opt.lsq_linear(x_upper, y_upper, (-self.m, self.m))
-            upper_bound = res.cost + self.l0 * len(node.support)
+            upper_bound = res.cost + self.l0 * len(support)
             upper_z = res.x
         else:
             upper_bound = 0.5 * np.linalg.norm(self.y) ** 2
@@ -189,7 +187,8 @@ class tree():
         self.lower_bound = None         # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-
+        self.int_tol = problem.int_tol
+        self.gap_tol = problem.gap_tol
         self.root = None
 
     def start_root(self, warm_start):
@@ -197,14 +196,13 @@ class tree():
         # Use warm start for upper bound
         if (warm_start is not None):
             support = np.nonzero(warm_start)[0]
-            self.best_int_primal, self.best_int_beta = \
-                                  upper_bound_solve(root_node)
+            self.best_int_primal, self.best_int_beta = self.problem.upper_bound_solve(root_node, support)
 
         # Initialize root node
-        root_node = Node(parent=None, node_key='root_node')
+        root_node = Node(parent=None, node_key='root_node',zlb=[], zub=[])
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
-        self.problem.lower_solve(root_node)
+        self.problem.lower_solve(root_node, solver='l1cd', rel_tol= 1e-4, mio_gap=1e-4,int_tol=self.int_tol)
         self.problem.upper_solve(root_node)
 
         # Update bounds and opt gap
@@ -251,7 +249,35 @@ class tree():
                                
         return(tree_stats)
 
+    def get_node_stats(self, node_key):
+        # Returns summary stats for a given node
+        node = self.all_nodes[node_key]
+        len_support = len(node.support) if node.support else 0
+        has_lb = (self.lower_bound == node.primal_value)
+        has_ub = (self.best_int == node.upper_bound)
+        node_stats = np.array([len(node.zub),
+                               len(node.zlb),
+                               node.primal_value,
+                               node.level,
+                               len_support,
+                               has_lb,
+                               has_ub])
+        return(node_stats)
 
+    def get_var_stats(self, node_key, j):
+        node = self.all_nodes[node_key]
+
+        # Case when node has no support (used for retrobranching)
+        if len(node.support) == 0: 
+            print('No Support')
+            return np.array([0,0])
+        
+        # Returns summary stats for branching on j in a node
+        index = [i for i in range(len(node.support)) if node.support[i] == j][0]
+        var_stats = np.array([node.primal_beta[index],
+                          node.z[index]])
+        return(var_stats)
+    
     def get_state(self, node_key, j):
         # Concatenates overall state for possible branch
         state = np.concatenate((self.prob_stats,
@@ -291,7 +317,7 @@ class tree():
     def int_sol(self, node):
         # Check if within tolerance to an integer solution
         for i in node.support:
-            if i not in self.problem.zlb and i not in self.problem.zub:
+            if i not in node.zlb and i not in node.zub:
                 #beta_i = node.primal_beta[node.support.index(i)]
                 z_i = node.z[node.support.index(i)]
                 residual = min(z_i, 1-z_i)
@@ -319,7 +345,7 @@ class tree():
     def solve_node(self, node_key):
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]
-        self.problem.lower_solve(curr_node)
+        self.problem.lower_solve(curr_node,solver='l1cd', rel_tol=1e-4, mio_gap=0,int_tol=self.int_tol)
         
         # Update upper bound by rounding soln
         curr_upper_bound = self.problem.upper_solve(curr_node)
@@ -345,17 +371,17 @@ class tree():
 
         # Create two child nodes
         branch_node = self.active_nodes[branch_node_key]
-        self.problem.zlb =self.problem.zlb+[j]
-        self.problem.zub = self.problem.zub+[j]
+        new_zlb = branch_node.zlb+[j]
+        new_zub = branch_node.zub+[j]
         
         # Branch to beta_j to be 0
         node_name_1 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1)
+        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1, zlb=new_zlb, zub=branch_node.zub)
         self.node_counter += 1
 
         # Branch to beta_j to be 1
         node_name_2 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2)
+        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2, zlb=branch_node.zlb, zub=new_zub)
         self.node_counter += 1
 
         # Store New Nodes in all_nodes Dictionary

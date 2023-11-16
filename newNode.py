@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Node:
-    def __init__(self, parent, node_key):
+    def __init__(self, parent, node_key, zlb: list, zub: list):
         """
         Initialize a Node
 
@@ -29,6 +29,8 @@ class Node:
             self.warm_start = None
 
         self.level = parent.level + 1 if parent else 0
+        self.zlb = zlb
+        self.zub = zub
         self.z = None
 
         self.upper_bound = None
