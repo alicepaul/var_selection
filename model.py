@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import tree
+import Tree
 from collections import deque, namedtuple
 from settings import MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
@@ -61,26 +61,26 @@ class Agent():
             if node.state is None: 
                 if len(node.support) == 0:
                     best_j = 0
-                # Select an action according to an epsilon greedy approach 
-                elif (random.random() < self.epsilon):
+                # Select an best_j 
+                else:
                     z = node.z
                     support = node.support
                     diff = [min(1-z[i], z[i]-0) for i in range(len(support))]
                     best_j = support[np.argmax(diff)]
                 
-                else:
-                    support = node.support
-                    best_val = -math.inf
-                    best_j = 0
+                # else:
+                #     support = node.support
+                #     best_val = -math.inf
+                #     best_j = 0
 
-                    for i in range(len(support)):
-                        state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
-                                            dtype=torch.float)
-                        # Agent estimates using policy network
-                        val = self.policy_net(state) 
-                        if val > best_val:
-                            best_val = val
-                            best_j = support[i]
+                #     for i in range(len(support)):
+                #         state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
+                #                             dtype=torch.float)
+                #         # Agent estimates using policy network
+                #         val = self.policy_net(state) 
+                #         if val > best_val:
+                #             best_val = val
+                #             best_j = support[i]
             
                 node.state = tree.get_state(node.node_key, best_j)
 
@@ -171,27 +171,25 @@ class Agent():
         self.optimizer.step()
 
 
-def RL_solve(agent, x, y, l0, l2, m):
-    # Solving an instance using agent to make choices in tree
-    p = tree.Problem(x,y,l0,l2, m)
-    T = tree.tree(p)
-    fin_solving = T.start_root(None)
-    iters = 0
+    def RL_solve(self, T):
+        # Solving an instance using agent to make choices in tree
+        fin_solving = T.start_root(None)
+        iters = 0
 
-    while (fin_solving == False) and (iters < MAX_ITERS):
-        # Select and perform an action
-        node, j = agent.select_action(T)
-        fin_solving, old_gap, new_gap = T.step(node, j) 
+        while (fin_solving == False) and (iters < MAX_ITERS):
+            # Select and perform an action
+            node, j = self.select_action(T)
+            fin_solving, old_gap, new_gap = T.step(node, j) 
 
-        # Optimize the target network using replay memory
-        agent.replay_memory()
+            # Optimize the target network using replay memory
+            self.replay_memory()
 
-        iters += 1
+            iters += 1
 
-    # Store tree in memory and get total reward for tree
-    tot_reward = agent.retrobranch(T)
+        # Store tree in memory and get total reward for tree
+        tot_reward = self.retrobranch(T)
 
-    # Update number of episodes Agent has played
-    agent.episodes_played += 1
-        
-    return(iters, tot_reward, len(T.candidate_sol))
+        # Update number of episodes Agent has played
+        self.episodes_played += 1
+            
+        return(iters, tot_reward, len(T.candidate_sol), T.optimality_gap)

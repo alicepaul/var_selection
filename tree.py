@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from node import Node
+from Node import Node
 from random import choice, choices
 import math
 from operator import attrgetter
@@ -182,9 +182,9 @@ class tree():
         self.all_nodes = dict()         # All Nodes
         self.step_counter = 0           # Number branch steps taken
         self.node_counter = 0
-        self.best_int = math.inf        # Best integer solution value
+        self.best_int = math.inf            # Best integer solution value
         self.candidate_sol = None           # Best integer solution betas
-        self.lower_bound = None         # Minimum relaxation value of all nodes
+        self.lower_bound = None             # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
         self.int_tol = problem.int_tol
@@ -467,7 +467,7 @@ class tree():
         
         reward = -iters + 1
 
-        return(iters, reward, len(self.candidate_sol))
+        return(iters, reward, len(self.candidate_sol), self.optimality_gap)
 
     # The get_state_pairs function can remain unchanged if it's still required.
 
