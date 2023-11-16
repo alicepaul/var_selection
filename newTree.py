@@ -471,7 +471,7 @@ class tree():
 
     # The get_state_pairs function can remain unchanged if it's still required.
 
-    def get_state_pairs(self):
+    def get_state_pairs(self, node):
         '''
         Recursively collect tree edges, parent and child states pairs
 
@@ -481,7 +481,7 @@ class tree():
             list of (previous state, state, reward) tuples
         '''
         pairs = []
-        node = self.root
+
         if not node:
             return pairs
 
