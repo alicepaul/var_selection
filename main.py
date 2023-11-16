@@ -53,9 +53,5 @@ for f in files:
         res = pd.concat([res, new_row], ignore_index=True)
     num_files += 1
 
-    # Update target network
-    if num_files % TARGET_UPDATE == 0:
-        agent.target_net.load_state_dict(agent.policy_net.state_dict())
-
 res.to_csv("synthetic_data/results_"+str(DATA_BATCH)+".csv", index=False)
 # torch.save(agent.policy_net.state_dict(), "synthetic_data/model_"+str(DATA_BATCH)+".pt")

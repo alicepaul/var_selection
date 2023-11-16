@@ -1,10 +1,3 @@
-# Toby Dekara and Alice Paul
-# Created July 19, 2022
-# Model for RL agent
-
-# Adapted from Human-Level Control Through Deep Reinforcement Learning
-#Copyright (c) 2018 Algonomicon LLC
-
 import random
 import numpy as np
 import math
@@ -12,11 +5,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import Tree
 from collections import deque, namedtuple
-import tree 
-from tree import get_state_pairs
 from settings import MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
+
 
 # Memory representation of states
 Transition = namedtuple('Transition', 
@@ -95,7 +88,8 @@ class Agent():
         total_reward = 0
 
         # Call tree function to create all state to state pairs
-        state_pairs = get_state_pairs(tree.root)
+        state_pairs = tree.get_state_pairs(tree.root)
+        
         for prev, curr, r in state_pairs:
             total_reward += r
 
@@ -177,9 +171,10 @@ class Agent():
         self.optimizer.step()
 
 
-def RL_solve(agent, x, y, l0, l2):
+def RL_solve(agent, x, y, l0, l2, m):
     # Solving an instance using agent to make choices in tree
-    T = tree.tree(x,y,l0,l2)
+    p = Tree.Problem(x,y,l0,l2, m)
+    T = Tree.tree(p)
     fin_solving = T.start_root(None)
     iters = 0
 
@@ -199,4 +194,4 @@ def RL_solve(agent, x, y, l0, l2):
     # Update number of episodes Agent has played
     agent.episodes_played += 1
         
-    return(iters, tot_reward, len(T.best_beta))
+    return(iters, tot_reward, len(T.candidate_sol))
