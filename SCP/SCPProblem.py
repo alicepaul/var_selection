@@ -1,16 +1,17 @@
 from pyscipopt import Model, quicksum
+from genSCPdata import generate_scp_dataset
 
 class Problem:
     """
     A class designed to solve the set cover problem using the branch and bound algorithm.
     
     Attributes:
-        sets (list of lists): Collection of sets, each containing elements.
+        x (numpy.ndarray): Binary matrix representing the sets.
         universe (set): The universe of elements that need to be covered.
     """
 
-    def __init__(self, sets, universe):
-        self.sets = sets
+    def __init__(self, x, universe):
+        self.x = x
         self.universe = universe
 
     def lower_solve(self):
@@ -21,18 +22,15 @@ class Problem:
             model (Model): The solved SCIP model for the relaxed problem.
         """
         model = Model("SetCoverRelaxed")
-        x = {}
-
-        # Variables (fractional allowed for relaxation)
-        for j in range(len(self.sets)):
-            x[j] = model.addVar(vtype="C", name="x_%s" % j)
+        num_sets, num_universe_items = self.x.shape
+        set_vars = [model.addVar(vtype="C", name=f"x_{i}") for i in range(num_sets)]
 
         # Constraints
-        for i in self.universe:
-            model.addCons(quicksum(x[j] for j, s in enumerate(self.sets) if i in s) >= 1)
+        for j in range(num_universe_items):
+            model.addCons(quicksum(self.x[i, j] * set_vars[i] for i in range(num_sets)) >= 1)
 
         # Objective
-        model.setObjective(quicksum(x[j] for j in range(len(self.sets))), "minimize")
+        model.setObjective(quicksum(set_vars), "minimize")
 
         model.optimize()
         return model
@@ -45,24 +43,66 @@ class Problem:
             model (Model): The solved SCIP model for the set cover problem.
         """
         model = Model("SetCover")
-
-        # Variables (binary for set cover)
-        x = {j: model.addVar(vtype="B", name="x_%s" % j) for j in range(len(self.sets))}
+        num_sets, num_universe_items = self.x.shape
+        set_vars = [model.addVar(vtype="B", name=f"x_{i}") for i in range(num_sets)]
 
         # Constraints
-        for i in self.universe:
-            model.addCons(quicksum(x[j] for j, s in enumerate(self.sets) if i in s) >= 1)
+        for j in range(num_universe_items):
+            model.addCons(quicksum(self.x[i, j] * set_vars[i] for i in range(num_sets)) >= 1)
 
         # Objective
-        model.setObjective(quicksum(x[j] for j in range(len(self.sets))), "minimize")
+        model.setObjective(quicksum(set_vars), "minimize")
 
         model.optimize()
         return model
 
+    def upper_solve_lp_rounding(self):
+        """
+        Solves the set cover problem using LP rounding.
+
+        Returns:
+            list: Indices of selected sets.
+        """
+        # First, solve the relaxed problem
+        relaxed_model = self.lower_solve()
+
+        # Get the LP solution
+        num_sets = len(self.sets)
+        lp_solution = [relaxed_model.getVal(relaxed_model.getVarByName(f"x_{i}")) for i in range(num_sets)]
+
+        # Rounding: Select sets where the LP solution value is greater than a threshold
+        # You can adjust this threshold as needed
+        threshold = 0.5
+        selected_sets = [i for i, val in enumerate(lp_solution) if val >= threshold]
+
+        # Ensure all items are covered, add missing coverage
+        for j in range(len(self.universe)):
+            if not any(self.x[i, j] for i in selected_sets):
+                # Find the set that contributes most to covering this item
+                # based on the LP solution and add it to the selected sets
+                max_contrib_set = max(range(num_sets), key=lambda i: self.x[i, j] * lp_solution[i])
+                selected_sets.append(max_contrib_set)
+
+        return list(set(selected_sets))  # Remove duplicates if any
+
 # Example usage
-sets = [{1, 2, 3}, {2, 4}, {3, 4}, {4, 5}]
-universe = set().union(*sets)
-problem = Problem(sets, universe)
+problem = Problem(x, universe)
+
+# Solve using LP rounding
+selected_sets_lp_rounding = problem.upper_solve_lp_rounding()
+print("Sets selected by LP Rounding:", selected_sets_lp_rounding)
+    
+import numpy as np
+
+num_universe_items = 50
+num_sets = 20
+min_set_size = 3
+max_set_size = 10
+
+universe, x = generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_size)
+
+# Create an instance of the Problem class with the generated data
+problem = Problem(x, universe)
 
 relaxed_model = problem.lower_solve()
 integer_model = problem.upper_solve()

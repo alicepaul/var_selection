@@ -21,8 +21,6 @@ class Problem:
         m (float): A constant used in some calculations. Defaults to 1.5.
         int_tol (float): Tolerance for interpreting float as integer in optimization. Defaults to 1e-4.
         gap_tol (float): Tolerance for the gap in optimization process. Defaults to 1e-4.
-        zlb (list): Lower bound for some optimization methods. Initialized as empty list.
-        zub (list): Upper bound for some optimization methods. Initialized as empty list.
         xi_norm (numpy.ndarray): Stores the squared L2 norm of x.
     """
     def __init__(self, x, y, l0, l2, m = 1.5, int_tol=1e-4, gap_tol=1e-4):
