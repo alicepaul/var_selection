@@ -35,7 +35,7 @@ model_num = 0
 # with open(f'synthetic_data/models/memory_{model_num}.pkl', 'rb') as f:
 #     agent.memory = pickle.load(f)
 
-# agent.epsilon = ???
+# agent.epsilon = ??? # Set using most recent results or to desired values
 
 for f in files:
     print(num_files, flush=True)
