@@ -4,6 +4,6 @@ TARGET_UPDATE = 1
 BATCH_SIZE = 64
 EPSILON_START = 0.99
 EPSILON_END = 0.05
-EPSILON_DECAY = .9995 # Calculated so that it would take ~100 episodes to hit epsilon min
+EPSILON_DECAY = .99975 # Calculated so that it would take ~100 episodes to hit epsilon min
 INT_EPS = 1e-4
 GAMMA = 0.9

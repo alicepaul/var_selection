@@ -181,13 +181,15 @@ class Agent():
             node, j = self.select_action(T)
             fin_solving, old_gap, new_gap = T.step(node, j) 
 
-            # Optimize the target network using replay memory
-            self.replay_memory()
-
             iters += 1
 
         # Store tree in memory and get total reward for tree
         tot_reward = self.retrobranch(T)
+
+        # Optimize the target network using replay memory 
+        # 128 iters after each episode
+        for i in range(128):
+            self.replay_memory()
 
         # Update number of episodes Agent has played
         self.episodes_played += 1
