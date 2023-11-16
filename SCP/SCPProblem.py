@@ -1,5 +1,6 @@
 from pyscipopt import Model, quicksum
-from genSCPdata import generate_scp_dataset
+import numpy as np
+import random
 
 class Problem:
     """
@@ -71,7 +72,6 @@ class Problem:
         lp_solution = [relaxed_model.getVal(relaxed_model.getVarByName(f"x_{i}")) for i in range(num_sets)]
 
         # Rounding: Select sets where the LP solution value is greater than a threshold
-        # You can adjust this threshold as needed
         threshold = 0.5
         selected_sets = [i for i, val in enumerate(lp_solution) if val >= threshold]
 
@@ -85,14 +85,55 @@ class Problem:
 
         return list(set(selected_sets))  # Remove duplicates if any
 
-# Example usage
-problem = Problem(x, universe)
+def generate_scp_dataset(num_universe_items, num_sets, min_set_size, max_set_size):
+    """
+    Generate a dataset for the Set Covering Problem.
 
-# Solve using LP rounding
-selected_sets_lp_rounding = problem.upper_solve_lp_rounding()
-print("Sets selected by LP Rounding:", selected_sets_lp_rounding)
-    
-import numpy as np
+    :param num_universe_items: Number of items in the universe.
+    :param num_sets: Number of sets to generate.
+    :param min_set_size: Minimum number of items in each set.
+    :param max_set_size: Maximum number of items in each set.
+    :return: A tuple (universe, x) where universe is a set of all items,
+             and x is a binary matrix representing the sets.
+    """
+    # Generate the universe of items
+    universe = set(range(num_universe_items))
+
+    # Initialize the binary matrix for sets
+    x = np.zeros((num_sets, num_universe_items), dtype=int)
+
+    # Generate the sets and update the binary matrix
+    for i in range(num_sets):
+        set_size = random.randint(min_set_size, max_set_size)
+        set_items = random.sample(list(universe), set_size)  # Convert the set to a list here
+        for item in set_items:
+            x[i, item] = 1
+
+    # Ensure every item is covered at least once
+    uncovered_items = universe.copy()
+    for item in universe:
+        if not np.any(x[:, item]):
+            random_set = random.randint(0, num_sets - 1)
+            x[random_set, item] = 1
+            uncovered_items.discard(item)
+
+    # If there are still uncovered items, add them to random sets
+    while uncovered_items:
+        item = uncovered_items.pop()
+        random_set = random.randint(0, num_sets - 1)
+        x[random_set, item] = 1
+
+    return universe, x
+
+# # Example usage
+# problem = Problem(x, universe)
+
+# # Solve using LP rounding
+# selected_sets_lp_rounding = problem.upper_solve_lp_rounding()
+# print("Sets selected by LP Rounding:", selected_sets_lp_rounding)
+
+
+
 
 num_universe_items = 50
 num_sets = 20
