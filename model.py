@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import Tree
+import tree
 from collections import deque, namedtuple
 from settings import MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
@@ -173,8 +173,8 @@ class Agent():
 
 def RL_solve(agent, x, y, l0, l2, m):
     # Solving an instance using agent to make choices in tree
-    p = Tree.Problem(x,y,l0,l2, m)
-    T = Tree.tree(p)
+    p = tree.Problem(x,y,l0,l2, m)
+    T = tree.tree(p)
     fin_solving = T.start_root(None)
     iters = 0
 

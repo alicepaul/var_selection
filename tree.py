@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from Node import Node
+from node import Node
 from random import choice, choices
 import math
 from operator import attrgetter
