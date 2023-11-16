@@ -464,42 +464,45 @@ class tree():
                 j = support[np.argmax(diff)]
                 node.state = self.get_state(node.node_key, j)
 
-        return iters, num_pos, self
+        
+        reward = -iters + 1
 
-# The get_state_pairs function can remain unchanged if it's still required.
+        return(iters, reward, len(self.candidate_sol))
 
-def get_state_pairs(node):
-    '''
-    Recursively collect tree edges, parent and child states pairs
+    # The get_state_pairs function can remain unchanged if it's still required.
 
-    input:
-        node: node of tree
-    return:
-        list of (previous state, state, reward) tuples
-    '''
-    pairs = []
+    def get_state_pairs(self, node):
+        '''
+        Recursively collect tree edges, parent and child states pairs
 
-    if not node:
+        input:
+            node: node of tree
+        return:
+            list of (previous state, state, reward) tuples
+        '''
+        pairs = []
+
+        if not node:
+            return pairs
+
+        # Check left child
+        if node.left:
+            if node.left.is_leaf:
+                # If child is leaf reward is 0
+                pairs.append((node.state, node.left.state, 0))
+            else:
+                pairs.append((node.state, node.left.state, -1))
+            pairs.extend(self.get_state_pairs(node.left))
+
+        # Check right child
+        if node.right:
+            if node.right.is_leaf:
+                # If child is leaf reward is -1
+                pairs.append((node.state, node.right.state, 0))
+            else:
+                pairs.append((node.state, node.right.state, -1))
+            pairs.extend(self.get_state_pairs(node.right))
+
         return pairs
-
-    # Check left child
-    if node.left:
-        if node.left.is_leaf:
-            # If child is leaf reward is 0
-            pairs.append((node.state, node.left.state, 0))
-        else:
-            pairs.append((node.state, node.left.state, -1))
-        pairs.extend(get_state_pairs(node.left))
-
-    # Check right child
-    if node.right:
-        if node.right.is_leaf:
-            # If child is leaf reward is -1
-            pairs.append((node.state, node.right.state, 0))
-        else:
-            pairs.append((node.state, node.right.state, -1))
-        pairs.extend(get_state_pairs(node.right))
-
-    return pairs
 
     
