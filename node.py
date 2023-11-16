@@ -49,8 +49,6 @@ class Node:
         self.right = None
         self.state = None
 
-    ### Tree Stucture Code ###
-
     def get_info(self):
         return f'node_key: {self.node_key}, is_leaf: {self.is_leaf}, ' \
             f'state: {self.state}'
@@ -77,8 +75,6 @@ class Node:
     def __str__(self):
         return f'level: {self.level}, lower cost: {self.primal_value}, ' \
             f'upper cost: {self.upper_bound}'
-
-    ### END ###
 
     def __repr__(self):
         return self.__str__()
