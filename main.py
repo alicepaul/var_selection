@@ -45,12 +45,11 @@ for f in files:
     l0 = l0_max*0.3
     l2 = 0.0
 
-    # Create Problem and Tree 
+    # Solve with agent and branch and bound directly
+    RL_iters, RL_rewards, RL_nnz, RL_og = agent.RL_solve(x,y,l0,l2, m = 1.3)
+
     p = Tree.Problem(x,y,l0,l2, m = 1.3)
     tree = Tree.tree(p)
-
-    # Solve with agent and branch and bound directly
-    RL_iters, RL_rewards, RL_nnz, RL_og = agent.RL_solve(tree)
     MF_iters, MF_rewards, MF_nnz, MF_og = tree.branch_and_bound("max")
     SB_iters, SB_rewards, SB_nnz, SB_og = tree.branch_and_bound("strong_branch")
 

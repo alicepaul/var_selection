@@ -171,7 +171,11 @@ class Agent():
         self.optimizer.step()
 
 
-    def RL_solve(self, T):
+    def RL_solve(self, x, y, l0, l2, m):
+        # Initialize Tree
+        p = Tree.Problem(x,y,l0,l2, m)
+        T = Tree.tree(p)
+
         # Solving an instance using agent to make choices in tree
         fin_solving = T.start_root(None)
         iters = 0
