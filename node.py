@@ -22,7 +22,7 @@ class Node:
         self.parent_dual = parent.dual_value if parent else None
         self.parent_primal = parent.primal_value if parent else None
 
-        if parent:
+        if parent and parent.warm_start:
             self.warm_start = \
                 {i: j for i, j in zip(parent.support, parent.primal_beta)}
         else:

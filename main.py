@@ -7,7 +7,7 @@ import Tree
 import pickle
 import torch
 from itertools import count
-from settings import TARGET_UPDATE, DATA_BATCH, MAX_ITERS
+from settings import TARGET_UPDATE, DATA_BATCH, MOD_NUM
 
 # Directory of problems
 my_path = "synthetic_data/batch_"+str(DATA_BATCH)
@@ -24,15 +24,13 @@ res = pd.DataFrame(columns = column_names)
 
 # Agent RL
 agent = Model.Agent()
-# Set Model Number for loading/saving models
-model_num = 0
 
 # Load Previous Model
-# agent.policy_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{model_num}.pt"))
-# agent.target_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{model_num}.pt"))
-# agent.optimizer.load_state_dict(torch.load(f"synthetic_data/models/optimizer_{model_num}.pt"))
+# agent.policy_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{MOD_NUM}.pt"))
+# agent.target_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{MOD_NUM}.pt"))
+# agent.optimizer.load_state_dict(torch.load(f"synthetic_data/models/optimizer_{MOD_NUM}.pt"))
 
-# with open(f'synthetic_data/models/memory_{model_num}.pkl', 'rb') as f:
+# with open(f'synthetic_data/models/memory_{MOD_NUM}.pkl', 'rb') as f:
 #     agent.memory = pickle.load(f)
 
 # agent.epsilon = ??? # Set using most recent results or to desired values
@@ -65,13 +63,14 @@ for f in files:
     res = pd.concat([res, new_row], ignore_index=True)
     num_files += 1
 
+# Save Results
 res.to_csv("synthetic_data/results_"+str(DATA_BATCH)+".csv", index=False)
 
 # Save Model Information
-torch.save(agent.policy_net.state_dict(), f"synthetic_data/models/model_pn_{model_num+1}.pt")    # Save Policy Net
-torch.save(agent.target_net.state_dict(), f"synthetic_data/models/model_tn_{model_num+1}.pt")    # Save Policy Net
-torch.save(agent.optimizer.state_dict(), f"synthetic_data/models/optimizer_{model_num+1}.pt")    # Save Optimizer
+torch.save(agent.policy_net.state_dict(), f"synthetic_data/models/model_pn_{MOD_NUM+1}.pt")    # Save Policy Net
+torch.save(agent.target_net.state_dict(), f"synthetic_data/models/model_tn_{MOD_NUM+1}.pt")    # Save Policy Net
+torch.save(agent.optimizer.state_dict(), f"synthetic_data/models/optimizer_{MOD_NUM+1}.pt")    # Save Optimizer
 
 # Save memory
-with open(f'synthetic_data/models/memory_{model_num+1}.pkl', 'wb') as f:
+with open(f'synthetic_data/models/memory_{MOD_NUM+1}.pkl', 'wb') as f:
     pickle.dump(agent.memory, f) # Save Memory

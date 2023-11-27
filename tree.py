@@ -7,6 +7,8 @@ from operator import attrgetter
 from settings import MAX_ITERS
 from scipy import optimize as sci_opt
 from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
+import warnings
+
 
 class Problem:
     """
@@ -56,11 +58,11 @@ class Problem:
         """
         if solver == 'l1cd':
             sol = cd_solve(x=self.x, y=self.y, l0=self.l0, l2=self.l2, m=self.m, zlb=node.zlb,
-                           zub=node.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
-                           warm_start=node.warm_start, r=self.r,
-                           tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
-                           gs_xtr=self.gs_xtr, gs_xb=self.gs_xb,
-                           cd_max_itr=cd_max_itr, kkt_max_itr=kkt_max_itr)
+                        zub=node.zub, xi_norm=self.xi_norm, rel_tol=rel_tol,
+                        warm_start=node.warm_start, r=self.r,
+                        tree_upper_bound=tree_upper_bound, mio_gap=mio_gap,
+                        gs_xtr=self.gs_xtr, gs_xb=self.gs_xb,
+                        cd_max_itr=cd_max_itr, kkt_max_itr=kkt_max_itr)
             node.primal_value = sol.primal_value
             node.dual_value = sol.dual_value
             node.primal_beta = sol.primal_beta
@@ -233,8 +235,6 @@ class tree():
                 'opt_gap': self.optimality_gap}
         return(info)
 
-
-
     def get_tree_stats(self):
         # Returns summary statisitics that describe the set of all active nodes
         tree_stats = np.array([self.node_counter,
@@ -267,7 +267,7 @@ class tree():
 
         # Case when node has no support (used for retrobranching)
         if len(node.support) == 0: 
-            print('No Support')
+            print('No Support found for Node during Retrobranching')
             return np.array([0,0])
         
         # Returns summary stats for branching on j in a node
@@ -413,6 +413,7 @@ class tree():
         # Return True if solved or within tolerance and False otherwise
         if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
             return(True, old_gap, self.optimality_gap)
+        
         return(False, old_gap, self.optimality_gap)
 
     def branch_and_bound(self, branch="max"):
