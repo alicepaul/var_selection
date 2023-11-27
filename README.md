@@ -1,6 +1,6 @@
 # Reinforcement Learning for Best Subset Variable Selection
 
-This repository contains ongoing work focusing on "Reinforcement Learning for Best Subset Variable Selection". Our current work builds on the research of Tobias DeKara, which used a novel approach to best subset selection for sparse linear regression using mixed integer quadratic optimization (MIQO) in combination with reinforcement learning (RL) to enhance the efficiency of solving these MIQO problems/ Our current phase of research, undertaken by Kameel Dossal and Shreyas Mishra and advised by Professor **Alice Paul**, seeks to further these advancements. Our focus remains on the innovative application of reinforcement learning to optimize the solving of MIQO problems, particularly in the context of variable selection. 
+This repository contains ongoing work focusing on "Reinforcement Learning for Best Subset Variable Selection". Our current work builds on the research of Tobias DeKara, which used a novel approach to best subset selection for sparse linear regression using mixed integer quadratic optimization (MIQO) in combination with reinforcement learning (RL) to enhance the efficiency of solving these MIQO problems. Our current phase of research, undertaken by Kameel Dossal and Shreyas Mishra and advised by Professor **Alice Paul**, seeks to further these advancements. Our focus remains on the innovative application of reinforcement learning to optimize the solving of MIQO problems, particularly in the context of variable selection. 
 
 
 ## Repository Structure
