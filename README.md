@@ -4,7 +4,10 @@ This repository contains ongoing work focusing on "Reinforcement Learning for Be
 
 
 ## Repository Structure
-- `synthetic_data/`: Contains generated data for variable selection, stored models, and results.
+- `synthetic_data/`: 
+    - `batch_n/`: Batch of Synthetic Data Generated
+    - `models/`: Stores Trained Models
+    - `results/`: Results, `results.md` gives an overview for each file
 - `SCP/`: Related files for set-covering problem, using shared problem structure and class for variable selection.
 - `gen_syn_data.py`: Script for generating synthetic data for variable selection.
 - `main.py`: Main script to run algorithms, including the RL agent, on synthetic data. Outputs stored in synthetic_data/results and models in synthetic_data/models.
