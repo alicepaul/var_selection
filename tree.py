@@ -37,6 +37,9 @@ class Problem:
         self.gs_xtr = None
         self.gs_xb = None
         self.r = None
+
+        # States
+        self.prob_stats, self.var_stats = self.get_static_stats()
         
     def lower_solve(self, node, solver='l1cd', rel_tol=1e-4, int_tol=1e-6,tree_upper_bound=None, mio_gap=None, cd_max_itr=100, kkt_max_itr=100):
         """
@@ -148,7 +151,12 @@ class Problem:
 
         Returns:
             numpy.ndarray: Problem-level statistics.
+                - estimated covariance quantiles between x and y (5 values)
+                - X dot y quantiles (5 values)
+                - Number of variables p 
             numpy.ndarray: Variable-level statistics.
+                - estimated covariance quantiles between x_i and y (5 values)
+                -  x_i dot y (1 value)
         """
         all_x_dot_y = np.matmul(self.x.T, self.y)
         cov = self.x.shape[0] * np.cov(self.x, rowvar=False, bias=True)
@@ -163,7 +171,7 @@ class Problem:
             var_stats[i, 0:5] = np.quantile(x_i_cov, [0, 0.25, 0.5, 0.75, 1])
             var_stats[i, 5] = np.dot(self.x[:, i], self.y)
 
-        return prob_stats, var_stats
+        return np.append(prob_stats, p), var_stats
 
 def reverse_lookup(d, val):
   for key in d:
@@ -174,7 +182,6 @@ def reverse_lookup(d, val):
 class tree():
     def __init__(self, problem):
         self.problem = problem
-        self.prob_stats, self.var_stats = self.problem.get_static_stats()
         self.tree_stats = None
 
         # Algorithm variables - also reset with set_root below
@@ -236,10 +243,23 @@ class tree():
         return(info)
 
     def get_tree_stats(self):
+        """
+        Returns tree statistics
+
+        Returns:
+            numpy.ndarray: Tree specific statistics.
+                - number of steps taken
+                - number of active nodes
+                - number of candidate solution variables
+                - lower bound
+                - best integer solution
+                - initial optimality gap
+                - current optimality gpa
+        """
         # Returns summary statisitics that describe the set of all active nodes
-        tree_stats = np.array([self.node_counter,
-                               self.step_counter,
+        tree_stats = np.array([self.step_counter,
                                len(self.active_nodes),
+                               len(self.candidate_sol),
                                self.lower_bound,
                                self.best_int,
                                self.initial_optimality_gap,
@@ -248,6 +268,19 @@ class tree():
         return(tree_stats)
 
     def get_node_stats(self, node_key):
+        """
+        Returns node statistics
+
+        Returns:
+            numpy.ndarray: Node specific statistics.
+                - length of zub
+                - legth of zlb
+                - node specific primal value
+                - node depth level
+                - legth of support
+                - whether the node has the lower bound
+                - whether the node has the upper bound
+        """
         # Returns summary stats for a given node
         node = self.all_nodes[node_key]
         len_support = len(node.support) if node.support else 0
@@ -263,23 +296,38 @@ class tree():
         return(node_stats)
 
     def get_var_stats(self, node_key, j):
+        """
+        Returns variable statistics
+
+        Returns:
+            numpy.ndarray: Node and Variable specific statistics.
+                - primal beta
+                - z value
+                - upper z value 
+        """
         node = self.all_nodes[node_key]
 
         # Case when node has no support (used for retrobranching)
         if len(node.support) == 0: 
             print('No Support found for Node during Retrobranching')
-            return np.array([0,0])
+            # Values chosen to show lack of information for agent
+            return np.array([0, -1, 0])
         
         # Returns summary stats for branching on j in a node
         index = [i for i in range(len(node.support)) if node.support[i] == j][0]
         var_stats = np.array([node.primal_beta[index],
-                          node.z[index]])
+                          node.z[index], node.upper_z[index]])
+        
         return(var_stats)
     
     def get_state(self, node_key, j):
+        '''
+        Returns numpy array of 33 values containing problem and variable static states
+        as well as tree, node, and variable current states.
+        '''
         # Concatenates overall state for possible branch
-        state = np.concatenate((self.prob_stats,
-                  self.var_stats[j,:],
+        state = np.concatenate((self.problem.prob_stats,
+                  self.problem.var_stats[j,:],
                   self.tree_stats,
                   self.get_node_stats(node_key),
                   self.get_var_stats(node_key, j)))
@@ -303,7 +351,7 @@ class tree():
             node = self.active_nodes[node_key]
             z = node.z
             support = node.support
-            diff = [min(1-z[i],z[i]-0) for i in range(len(support))]
+            diff = [min(1-z[i],z[i]) for i in range(len(support))]
             max_diff = max(diff)
             potential_j = [i for i in range(len(support)) if diff[i]== max_diff][0]
             if max_diff > best_frac:
@@ -316,7 +364,7 @@ class tree():
         # Check if within tolerance to an integer solution
         for i in node.support:
             if i not in node.zlb and i not in node.zub:
-                #beta_i = node.primal_beta[node.support.index(i)]
+                # beta_i = node.primal_beta[node.support.index(i)]
                 z_i = node.z[node.support.index(i)]
                 residual = min(z_i, 1-z_i)
                 if residual > self.int_tol:

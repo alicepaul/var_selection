@@ -46,8 +46,8 @@ class Memory(object):
 # Agent that performs, remembers and learns actions
 class Agent():
     def __init__(self):
-        self.policy_net = DQN(32)
-        self.target_net = DQN(32)
+        self.policy_net = DQN(34)
+        self.target_net = DQN(34)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.memory = Memory(10000)
         self.episodes_played = 0
@@ -56,6 +56,20 @@ class Agent():
         self.epsilon_end = EPSILON_END
 
     def retrobranch(self, tree):
+        """
+        Complete all leaf states in finished tree, then store all state pairs in memory
+        Uses max_frac_branch for completing tree for efficiency
+        Checks if episodes_played divisible by TARGET_UPDATE, if so updates target network
+
+        Parameters
+        ----------
+        tree: Tree Class
+            the finished tree for retrobranching
+        
+        total_reward: Int
+            total reward for playing through tree
+        """
+
         # Complete Tree -- Get (Non-Optimal) States for Leaf Nodes
         for node in tree.all_nodes.values():
             if node.state is None: 
@@ -105,6 +119,20 @@ class Agent():
         return total_reward
 
     def select_action(self, T):
+        """
+        Select an optimal node and j to split on given a tree
+
+        Parameters
+        ----------
+        T: Tree Class
+            the tree to select an action on
+        
+        best_node_key: Str
+            string tied to the node to split on
+        best_j: Int
+            int representing the variable to split on
+        """
+
         # Select an action according to an epsilon greedy approach        
         if (random.random() < self.epsilon):
             # max fraction branching
@@ -131,6 +159,10 @@ class Agent():
         return(best_node_key, best_j)
     
     def replay_memory(self):
+        """
+        Samples a BATCH_SIZE number of items from memory, optimizes and updates policy network
+        """
+
         # Only Replay Memory if enough enteries in Memory
         if len(self.memory) < BATCH_SIZE:
             return
