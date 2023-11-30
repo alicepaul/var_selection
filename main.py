@@ -25,8 +25,8 @@ res = pd.DataFrame(columns = column_names)
 agent = Model.Agent()
 
 # Load Previous Model
-# agent.policy_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{MOD_NUM}.pt"))
-# agent.target_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/{MOD_NUM}.pt"))
+# agent.policy_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/model_pn_{MOD_NUM}.pt"))
+# agent.target_net.load_state_dict(torch.load(f"/users/kdossal/synthetic_data/models/model_tn_{MOD_NUM}.pt"))
 # agent.optimizer.load_state_dict(torch.load(f"synthetic_data/models/optimizer_{MOD_NUM}.pt"))
 
 # with open(f'synthetic_data/models/memory_{MOD_NUM}.pkl', 'rb') as f:

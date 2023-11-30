@@ -501,16 +501,6 @@ class tree():
             if old_gap > new_gap:
                 num_pos += 1
             iters += 1
-
-        # Complete Tree (Get's states for leaf nodes)
-        for node in self.all_nodes.values():
-            if node.state is None:
-                z = node.z
-                support = node.support
-                diff = [min(1 - z[i], z[i] - 0) for i in range(len(support))]
-                j = support[np.argmax(diff)]
-                node.state = self.get_state(node.node_key, j)
-
         
         reward = -iters + 1
 
