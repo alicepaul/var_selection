@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import Tree
+import tree
 from collections import deque, namedtuple
 from settings import MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
