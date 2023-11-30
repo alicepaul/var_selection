@@ -7,7 +7,8 @@ class Problem:
     def __init__(self, x, universe):
         self.x = x
         self.universe = universe
-        self.set_density = self.calculate_set_density()
+        self.coverage_overlap = self.calculate_coverage_overlap()
+        # self.set_density = self.calculate_set_density()
 
     def lower_solve(self, node):
         """
@@ -98,25 +99,25 @@ class Problem:
 
         return coverage_overlap
 
-    def calculate_set_density(self):
-        """
-        Calculates the density for each set in the set cover problem.
+    # def calculate_set_density(self):
+    #     """
+    #     Calculates the density for each set in the set cover problem.
 
-        Density is defined as the number of elements a set covers relative to its size (the number of elements in it).
-        It is a measure of how 'valuable' a set is in terms of coverage.
+    #     Density is defined as the number of elements a set covers relative to its size (the number of elements in it).
+    #     It is a measure of how 'valuable' a set is in terms of coverage.
 
-        Returns:
-            dict: A dictionary where keys are set indices and values are their density.
-        """
-        set_density = {}
-        num_sets, num_elements = self.x.shape
+    #     Returns:
+    #         dict: A dictionary where keys are set indices and values are their density.
+    #     """
+    #     set_density = {}
+    #     num_sets, num_elements = self.x.shape
 
-        for i in range(num_sets):
-            set_size = np.sum(self.x[i, :])
-            # Calculate density as the ratio of elements covered to the set size
-            if set_size > 0:
-                set_density[i] = np.sum(self.x[i, :]) / set_size
-            else:
-                set_density[i] = 0
+    #     for i in range(num_sets):
+    #         set_size = np.sum(self.x[i, :])
+    #         # Calculate density as the ratio of elements covered to the set size
+    #         if set_size > 0:
+    #             set_density[i] = np.sum(self.x[i, :]) / set_size
+    #         else:
+    #             set_density[i] = 0
 
-        return set_density
+    #     return set_density
