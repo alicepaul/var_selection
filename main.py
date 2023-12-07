@@ -8,6 +8,11 @@ import pickle
 import torch
 from itertools import count
 from settings import DATA_BATCH, MOD_NUM
+import random
+
+torch.manual_seed(0)
+np.random.seed(0)
+random.seed(0)
 
 # Directory of problems
 my_path = "synthetic_data/batch_"+str(DATA_BATCH)
@@ -18,7 +23,8 @@ num_files = 0
 # Results
 column_names = ["data", "num_file", "L0", "L2", "Epsilon", 
                 "RL_iters", "RL_rewards", "RL_nnz", "RL_OG",
-                "MF_iters", "MF_rewards", "MF_nnz", "MF_OG"]
+                "MF_iters", "MF_rewards", "MF_nnz", "MF_OG",
+                "R_iters", "R_rewards", "R_nnz", "R_OG"]
 res = pd.DataFrame(columns = column_names)
 
 # Agent RL
@@ -32,7 +38,7 @@ agent = Model.Agent()
 # with open(f'synthetic_data/models/memory_{MOD_NUM}.pkl', 'rb') as f:
 #     agent.memory = pickle.load(f)
 
-# agent.epsilon = ??? # Set using most recent results or to desired values
+# agent.epsilon = 0 # Set using most recent results or to desired values
 
 for f in files:
     print(num_files, flush=True)
@@ -41,33 +47,40 @@ for f in files:
     x = np.loadtxt(x_file, delimiter = ",")
     y = np.loadtxt(y_file, delimiter=",")
     l0_max = max(abs(np.dot(x.T, y)))/2.0
-    l0 = 0.01 # l0_max*0.3
+    l0 = l0_max*0.3
     l2 = 0.0
+    # Optimal m value is calculated prior in tuning.ipynb
+    m = 0.61
 
     # Solve with agent and branch and bound directly
-    # Optimal m value is calculated prior in tuning.ipynb
-    RL_iters, RL_rewards, RL_nnz, RL_og = agent.RL_solve(x,y,l0,l2, m = 1.3)
-
-    p = Tree.Problem(x,y,l0,l2, m = 1.3)
+    # Max Frac
+    p = Tree.Problem(x,y,l0,l2, m)
     tree = Tree.tree(p)
     MF_iters, MF_rewards, MF_nnz, MF_og = tree.branch_and_bound("max")
+    # Random 
+    p = Tree.Problem(x,y,l0,l2, m)
+    tree = Tree.tree(p)
+    R_iters, R_rewards, R_nnz, R_OG = tree.branch_and_bound("random")
+    # RL
+    RL_iters, RL_rewards, RL_nnz, RL_og = agent.RL_solve(x,y,l0,l2, m)
 
     # Add results to file
     data = [[f, num_files, l0, l2, agent.epsilon,
             RL_iters, RL_rewards, RL_nnz, RL_og,
-            MF_iters, MF_rewards, MF_nnz, MF_og]]
+            MF_iters, MF_rewards, MF_nnz, MF_og,
+            R_iters, R_rewards, R_nnz, R_OG]]
     new_row = pd.DataFrame(data=data, columns=column_names)
     res = pd.concat([res, new_row], ignore_index=True)
     num_files += 1
 
 # Save Results
-res.to_csv("synthetic_data/results_"+str(DATA_BATCH)+".csv", index=False)
+res.to_csv("synthetic_data/check_"+str(DATA_BATCH)+".csv", index=False)
 
-# # Save Model Information
-# torch.save(agent.policy_net.state_dict(), f"synthetic_data/models/model_pn_{MOD_NUM+1}.pt")    # Save Policy Net
-# torch.save(agent.target_net.state_dict(), f"synthetic_data/models/model_tn_{MOD_NUM+1}.pt")    # Save Target Net
-# torch.save(agent.optimizer.state_dict(), f"synthetic_data/models/optimizer_{MOD_NUM+1}.pt")    # Save Optimizer
+# Save Model Information
+torch.save(agent.policy_net.state_dict(), f"synthetic_data/models/model_pn_{MOD_NUM+1}.pt")    # Save Policy Net
+torch.save(agent.target_net.state_dict(), f"synthetic_data/models/model_tn_{MOD_NUM+1}.pt")    # Save Target Net
+torch.save(agent.optimizer.state_dict(), f"synthetic_data/models/optimizer_{MOD_NUM+1}.pt")    # Save Optimizer
 
-# # Save memory
-# with open(f'synthetic_data/models/memory_{MOD_NUM+1}.pkl', 'wb') as f:
-#     pickle.dump(agent.memory, f) # Save Memory
+# Save memory
+with open(f'synthetic_data/models/memory_{MOD_NUM+1}.pkl', 'wb') as f:
+    pickle.dump(agent.memory, f) # Save Memory

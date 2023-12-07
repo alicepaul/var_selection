@@ -1,14 +1,12 @@
 import numpy as np
 from copy import deepcopy
-from node import Node
+from Node import Node
 from random import choice, choices
 import math
 from operator import attrgetter
 from settings import MAX_ITERS
 from scipy import optimize as sci_opt
 from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
-import warnings
-
 
 class Problem:
     """
@@ -322,7 +320,7 @@ class tree():
     
     def get_state(self, node_key, j):
         '''
-        Returns numpy array of 33 values containing problem and variable static states
+        Returns numpy array of 34 values containing problem and variable static states
         as well as tree, node, and variable current states.
         '''
         # Concatenates overall state for possible branch
@@ -490,7 +488,7 @@ class tree():
                     if old_gap - new_gap > best_val:
                         best_val = old_gap - new_gap
                         node_key, j = node_key_i, j_i
-            else:
+            elif branch == 'random':
                 node_key = choice(list(self.active_nodes))
                 j = choice(self.active_nodes[node_key].support)
 
@@ -542,4 +540,4 @@ class tree():
 
         return pairs
 
-    
+        

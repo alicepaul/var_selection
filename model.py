@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import tree
+import Tree
 from collections import deque, namedtuple
 from settings import MAX_ITERS, EPSILON_START, \
      EPSILON_END, EPSILON_DECAY, BATCH_SIZE, INT_EPS, GAMMA, TARGET_UPDATE
@@ -19,14 +19,14 @@ Transition = namedtuple('Transition',
 class DQN(nn.Module):
     def __init__(self, input_size):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_size, 32)
-        self.fc2 = nn.Linear(32, 16)
+        self.fc1 = nn.Linear(input_size, 64)
+        self.fc2 = nn.Linear(64, 16)
         self.fc3 = nn.Linear(16, 1)
 
     def forward(self, x):
-        output1 = F.relu(self.fc1(x))
-        output2 = F.relu(self.fc2(output1))
-        output = F.relu(self.fc3(output2))
+        output1 = F.leaky_relu(self.fc1(x))
+        output2 = F.leaky_relu(self.fc2(output1))
+        output = self.fc3(output2)
         return(output)
 
 # Memory for our agent
@@ -203,7 +203,7 @@ class Agent():
         self.optimizer.step()
 
 
-    def RL_solve(self, x, y, l0, l2, m):
+    def RL_solve(self, x, y, l0, l2, m, training=True):
         # Initialize Tree
         p = Tree.Problem(x,y,l0,l2, m)
         T = Tree.tree(p)
@@ -222,12 +222,13 @@ class Agent():
         # Store tree in memory and get total reward for tree
         tot_reward = self.retrobranch(T)
 
-        # Optimize the target network using replay memory 
-        # 128 iters after each episode
-        for i in range(128):
-            self.replay_memory()
+        if training:
+            # Optimize the target network using replay memory 
+            # 128 iters after each episode
+            for i in range(128):
+                self.replay_memory()
 
-        # Update number of episodes Agent has played
-        self.episodes_played += 1
+            # Update number of episodes Agent has played
+            self.episodes_played += 1
             
         return(iters, tot_reward, len(T.candidate_sol), T.optimality_gap)
