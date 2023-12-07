@@ -36,3 +36,4 @@ results 8: p50, 500 episodes </br> -- Larger Network
 results 9: p10, 250 episodes </br> -- Eliminated Relu on last hidden layer of DQN, was leading to the dying relu problem
 ^ above model was saved as model_pn_1.pt
 results 10: p50, 500 episodes </br>
+results 11: p50, 500 episodes </br> -- Recreate previous
