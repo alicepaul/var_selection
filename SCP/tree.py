@@ -27,44 +27,40 @@ class tree():
         self.step_counter = 0           # Number branch steps taken
         self.node_counter = 0
         self.best_int = math.inf            # Best integer solution value
-        self.candidate_sol = None           # Best integer solution betas
+        self.candidate_sol = None           # Best integer solution Z
         self.lower_bound = None             # Minimum relaxation value of all nodes
-        self.initial_optimality_gap = None  # Initial optimality gap from root node
-        self.optimality_gap = None          # Current optimality gap
-        self.int_tol = problem.int_tol
-        self.gap_tol = problem.gap_tol
+        self.int_tol = problem.int_tol # used to tell if a num is a float or an int - very small float used for comparison 
         self.root = None
 
     def start_root(self, warm_start):
-        # Initializes the nodes with a root node
-        # Use warm start for upper bound
-        if (warm_start is not None):
-            support = np.nonzero(warm_start)[0]
-            self.best_int_primal, self.best_int_beta = self.problem.upper_bound_solve(root_node, support)
+        
 
         # Initialize root node
-        root_node = Node(parent=None, node_key='root_node',zlb=[], zub=[])
+        root_node = Node(parent=None, node_key='root_node')
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
+        ## TODO
+        # alter lower_solve and upper_solve
         self.problem.lower_solve(root_node, solver='l1cd', rel_tol= 1e-4, mio_gap=1e-4,int_tol=self.int_tol)
         self.problem.upper_solve(root_node)
-
+        ## lower_bound and upper_bound what do they signify?
+        
         # Update bounds and opt gap
         self.lower_bound = root_node.primal_value
         if (root_node.upper_bound < self.best_int):
             self.best_int = root_node.upper_bound
             self.candidate_sol = root_node.upper_z
-        self.initial_optimality_gap = \
-            (self.best_int - self.lower_bound) / self.lower_bound
-        self.optimality_gap = self.initial_optimality_gap
         self.node_counter += 1
+        ## TODO
+        # based on tree 
         self.tree_stats = self.get_tree_stats()
 
         # Start Tree
         self.root = self.active_nodes['root_node']
 
         # Return if done
-        if self.int_sol(root_node) or (self.optimality_gap <= self.gap_tol):
+        ## either feasible sol with all int or infeasible tree
+        if self.int_sol(root_node):
             return(True)
         return(False)
 
@@ -98,12 +94,12 @@ class tree():
                                len(self.active_nodes),
                                len(self.candidate_sol),
                                self.lower_bound,
-                               self.best_int,
-                               self.initial_optimality_gap,
-                               self.optimality_gap])
+                               self.best_int])
                                
         return(tree_stats)
 
+    ## TODO
+    # Problem dependent - just z values in
     def get_node_stats(self, node_key):
         """
         Returns node statistics
@@ -170,16 +166,9 @@ class tree():
                   self.get_node_stats(node_key),
                   self.get_var_stats(node_key, j)))
         return(state)
-
-    def get_frac_branchs(self):
-        # Finds fractional part for all possible splits
-        frac_dict = {}
-        for node_key in self.active_nodes:
-            node = self.active_nodes[node_key]
-            for i in range(len(node.support)):
-                frac_dict[(node_key, node.support[i])] = min([1-node.z[i],node.z[i]])
-        return(frac_dict)
-
+    ## TODO
+    
+    # based on best z 
     def max_frac_branch(self):
         # Finds node with greatest fractional part
         best_node_key = None
@@ -226,6 +215,8 @@ class tree():
             self.lower_bound_node_key = reverse_lookup(self.active_nodes, \
                                                        min(self.active_nodes.values(), \
                                                            key=attrgetter('primal_value')))
+    ## TODO
+    # change entire thing based on SCP
     def solve_node(self, node_key):
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]

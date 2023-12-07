@@ -51,27 +51,48 @@ class Problem:
 
         return node.primal_value, node.dual_value
     
+    def max_frac_branch(self, lp_solution):
+        """
+        Finds the decision variable with the maximum fractional part in the LP solution.
+
+        Parameters:
+            lp_solution (list of float): The LP solution of the decision variables.
+
+        Returns:
+            int: The index of the decision variable with the maximum fractional part.
+        """
+        max_frac = -1
+        max_frac_index = -1
+        for i, val in enumerate(lp_solution):
+            frac_part = abs(val - round(val))
+            if frac_part > max_frac:
+                max_frac = frac_part
+                max_frac_index = i
+        return max_frac_index
+    
     def upper_solve_lp_rounding(self, node):
         """
-        Solves the set cover problem using LP rounding.
+        Method to solve the set cover problem using LP rounding and branching.
+
+        Parameters:
+            node (Node): The current node in the branch and bound tree.
 
         Returns:
             list: Indices of selected sets.
         """
-        # The LP solution is stored in the node
         lp_solution = node.lp_solution
-        threshold = 0.5
-        selected_sets = [i for i, val in enumerate(lp_solution) if val >= threshold]
-        num_sets, num_universe_items = self.x.shape
+        max_frac_var = self.max_frac_branch(lp_solution)
         
-        # Ensure all items are covered, add missing coverage
-        for j in range(len(self.universe)):
-            if not any(self.x[i, j] for i in selected_sets):
-                # Find the set that contributes most to covering this item based on the LP solution and add it to the selected sets
-                max_contrib_set = max(range(num_sets), key=lambda i: self.x[i, j] * lp_solution[i])
-                selected_sets.append(max_contrib_set)
+        # Create two new nodes for branching
+        node_with_var = node(node.zlb + [max_frac_var], node.zub)
+        node_without_var = node(node.zlb, node.zub + [max_frac_var])
 
-        return list(set(selected_sets))  
+        # Solve both subproblems using lower_solve
+        # this will move to step
+        self.lower_solve(node_with_var)
+        self.lower_solve(node_without_var)
+
+        return node_with_var.lp_solution if node_with_var.primal_value < node_without_var.primal_value else node_without_var.lp_solution
 
     def calculate_coverage_overlap(self):
         """
@@ -99,25 +120,3 @@ class Problem:
 
         return coverage_overlap
 
-    # def calculate_set_density(self):
-    #     """
-    #     Calculates the density for each set in the set cover problem.
-
-    #     Density is defined as the number of elements a set covers relative to its size (the number of elements in it).
-    #     It is a measure of how 'valuable' a set is in terms of coverage.
-
-    #     Returns:
-    #         dict: A dictionary where keys are set indices and values are their density.
-    #     """
-    #     set_density = {}
-    #     num_sets, num_elements = self.x.shape
-
-    #     for i in range(num_sets):
-    #         set_size = np.sum(self.x[i, :])
-    #         # Calculate density as the ratio of elements covered to the set size
-    #         if set_size > 0:
-    #             set_density[i] = np.sum(self.x[i, :]) / set_size
-    #         else:
-    #             set_density[i] = 0
-
-    #     return set_density
