@@ -1,0 +1,10 @@
+DATA_BATCH = 1
+MAX_ITERS = 1000
+TARGET_UPDATE = 1
+BATCH_SIZE = 64
+EPSILON_START = 0.99
+EPSILON_END = 0.05
+EPSILON_DECAY = .9999 # Calculated so that it would take ~250 episodes to hit epsilon min
+INT_EPS = 1e-4
+GAMMA = 0.9
+MOD_NUM = 0 # ID of Model being loaded in, saves updated model as MOD_NUM + 1

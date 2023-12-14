@@ -6,9 +6,6 @@ import math
 from operator import attrgetter
 from settings import MAX_ITERS
 from scipy import optimize as sci_opt
-from l0bnb.relaxation import cd_solve, l0gurobi, l0mosek
-import warnings
-
 
 def reverse_lookup(d, val):
   for key in d:
@@ -27,40 +24,41 @@ class tree():
         self.step_counter = 0           # Number branch steps taken
         self.node_counter = 0
         self.best_int = math.inf            # Best integer solution value
-        self.candidate_sol = None           # Best integer solution Z
+        self.candidate_sol = None           # Best integer solution betas
         self.lower_bound = None             # Minimum relaxation value of all nodes
-        self.int_tol = problem.int_tol # used to tell if a num is a float or an int - very small float used for comparison 
+        ## Check if needed
+        self.initial_optimality_gap = None  # Initial optimality gap from root node
+        self.optimality_gap = None          # Current optimality gap
+        self.int_tol = problem.int_tol
+        self.gap_tol = problem.gap_tol
         self.root = None
 
-    def start_root(self, warm_start):
-        
-
+    def start_root(self):
+        # Initializes the nodes with a root node
+        # Use warm start for upper bound
         # Initialize root node
-        root_node = Node(parent=None, node_key='root_node')
+        root_node = Node(parent=None, node_key='root_node',zlb=[], zub=[], model = self.problem.model)
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
-        ## TODO
-        # alter lower_solve and upper_solve
-        self.problem.lower_solve(root_node, solver='l1cd', rel_tol= 1e-4, mio_gap=1e-4,int_tol=self.int_tol)
+        ## TODO Modify according to new problem class
+        self.problem.lower_solve(root_node)
         self.problem.upper_solve(root_node)
-        ## lower_bound and upper_bound what do they signify?
-        
+
         # Update bounds and opt gap
         self.lower_bound = root_node.primal_value
         if (root_node.upper_bound < self.best_int):
             self.best_int = root_node.upper_bound
             self.candidate_sol = root_node.upper_z
+        self.initial_optimality_gap = (self.best_int - self.lower_bound) / self.lower_bound
+        self.optimality_gap = self.initial_optimality_gap
         self.node_counter += 1
-        ## TODO
-        # based on tree 
         self.tree_stats = self.get_tree_stats()
 
         # Start Tree
         self.root = self.active_nodes['root_node']
 
         # Return if done
-        ## either feasible sol with all int or infeasible tree
-        if self.int_sol(root_node):
+        if self.int_sol(root_node) or (self.optimality_gap <= self.gap_tol):
             return(True)
         return(False)
 
@@ -94,12 +92,12 @@ class tree():
                                len(self.active_nodes),
                                len(self.candidate_sol),
                                self.lower_bound,
-                               self.best_int])
+                               self.best_int,
+                               self.initial_optimality_gap,
+                               self.optimality_gap])
                                
         return(tree_stats)
 
-    ## TODO
-    # Problem dependent - just z values in
     def get_node_stats(self, node_key):
         """
         Returns node statistics
@@ -152,11 +150,10 @@ class tree():
                           node.z[index], node.upper_z[index]])
         
         return(var_stats)
-    ## TO DO  - Change get state
     
     def get_state(self, node_key, j):
         '''
-        Returns numpy array of 33 values containing problem and variable static states
+        Returns numpy array of 34 values containing problem and variable static states
         as well as tree, node, and variable current states.
         '''
         # Concatenates overall state for possible branch
@@ -166,9 +163,7 @@ class tree():
                   self.get_node_stats(node_key),
                   self.get_var_stats(node_key, j)))
         return(state)
-    ## TODO
-    
-    # based on best z 
+
     def max_frac_branch(self):
         # Finds node with greatest fractional part
         best_node_key = None
@@ -215,13 +210,11 @@ class tree():
             self.lower_bound_node_key = reverse_lookup(self.active_nodes, \
                                                        min(self.active_nodes.values(), \
                                                            key=attrgetter('primal_value')))
-    ## TODO
-    # change entire thing based on SCP
     def solve_node(self, node_key):
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]
-        self.problem.lower_solve(curr_node,solver='l1cd', rel_tol=1e-4, mio_gap=0,int_tol=self.int_tol)
-        
+        ## Call lower solve from problem on current node
+        self.problem.lower_solve(curr_node)
         # Update upper bound by rounding soln
         curr_upper_bound = self.problem.upper_solve(curr_node)
         if curr_upper_bound < self.best_int:
@@ -251,12 +244,12 @@ class tree():
         
         # Branch to beta_j to be 0
         node_name_1 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1, zlb=new_zlb, zub=branch_node.zub)
+        self.active_nodes[node_name_1] = Node(parent=branch_node, node_key=node_name_1, zlb=new_zlb, zub=branch_node.zub, model = self.problem.model)
         self.node_counter += 1
 
         # Branch to beta_j to be 1
         node_name_2 = f'node_{self.node_counter}'
-        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2, zlb=branch_node.zlb, zub=new_zub)
+        self.active_nodes[node_name_2] = Node(parent=branch_node, node_key=node_name_2, zlb=branch_node.zlb, zub=new_zub, model = self.problem.model)
         self.node_counter += 1
 
         # Store New Nodes in all_nodes Dictionary
@@ -264,8 +257,7 @@ class tree():
         self.all_nodes[node_name_2] = self.active_nodes[node_name_2]
 
         # Store Child Nodes in Tree
-        branch_node.assign_children(self.active_nodes[node_name_1], \
-                                   self.active_nodes[node_name_2])
+        branch_node.assign_children(self.active_nodes[node_name_1], self.active_nodes[node_name_2])
         del self.active_nodes[branch_node_key] # Delete Parent from Active Nodes
 
         # Solve relaxations in new nodes
@@ -300,29 +292,7 @@ class tree():
         iters = 0
         num_pos = 0
         while (not fin_solving) and (iters < MAX_ITERS):
-            # Find node based on branching strategy
-            if branch == "max":
-                node_key, j = self.max_frac_branch()
-            elif branch == "sample":
-                frac_dict = self.get_frac_branchs()
-                vals = list(frac_dict.values())
-                node_key, j = choices(list(frac_dict.keys()), weights=vals)[0]
-            elif branch == "strong_branch":
-                frac_dict = self.get_frac_branchs()
-                vals = list(frac_dict.values())
-                pot_branches = choices(list(frac_dict.keys()), k=5, weights=vals)
-                best_val = 0
-                node_key, j = pot_branches[0]
-                for node_key_i, j_i in pot_branches:
-                    T_prime = deepcopy(self)
-                    fin_solving, old_gap, new_gap = T_prime.step(node_key_i, j_i)
-                    if old_gap - new_gap > best_val:
-                        best_val = old_gap - new_gap
-                        node_key, j = node_key_i, j_i
-            else:
-                node_key = choice(list(self.active_nodes))
-                j = choice(self.active_nodes[node_key].support)
-
+            node_key, j = self.max_frac_branch()
             # Take a step
             fin_solving, old_gap, new_gap = self.step(node_key, j)
 
@@ -330,16 +300,6 @@ class tree():
             if old_gap > new_gap:
                 num_pos += 1
             iters += 1
-
-        # Complete Tree (Get's states for leaf nodes)
-        for node in self.all_nodes.values():
-            if node.state is None:
-                z = node.z
-                support = node.support
-                diff = [min(1 - z[i], z[i] - 0) for i in range(len(support))]
-                j = support[np.argmax(diff)]
-                node.state = self.get_state(node.node_key, j)
-
         
         reward = -iters + 1
 
@@ -381,4 +341,4 @@ class tree():
 
         return pairs
 
-    
+        
