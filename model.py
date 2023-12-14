@@ -98,6 +98,9 @@ class Agent():
             
                 node.state = tree.get_state(node.node_key, best_j)
 
+        # Drop current leaves (unvisited node)
+        # tree.drop_leaves(tree.root)
+
         # Set rewards
         total_reward = 0
 

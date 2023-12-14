@@ -499,12 +499,26 @@ class tree():
             if old_gap > new_gap:
                 num_pos += 1
             iters += 1
-        
-        reward = -iters + 1
 
-        return(iters, reward, len(self.candidate_sol), self.optimality_gap)
+        return(iters, len(self.candidate_sol), self.optimality_gap)
 
-    # The get_state_pairs function can remain unchanged if it's still required.
+    def drop_leaves(self, node):
+        if not node:
+            return None
+
+        if node.is_leaf:
+            # If it's a leaf, return None to remove it
+            return None
+
+        # Recursively drop leaves in left and right subtrees
+        node.left = self.drop_leaves(node.left)
+        node.right = self.drop_leaves(node.right)
+
+        # If both children are None, this node becomes a leaf
+        if node.left is None and node.right is None:
+            node.is_leaf = True
+
+        return node
 
     def get_state_pairs(self, node):
         '''
@@ -532,7 +546,7 @@ class tree():
         # Check right child
         if node.right:
             if node.right.is_leaf:
-                # If child is leaf reward is -1
+                # If child is leaf reward is 0
                 pairs.append((node.state, node.right.state, 0))
             else:
                 pairs.append((node.state, node.right.state, -1))
