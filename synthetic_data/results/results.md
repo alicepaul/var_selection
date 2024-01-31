@@ -63,3 +63,5 @@ results 12: p10, 500 episodes
 
 results 13: p10, Offline Learning ~200 Episodes
 - Comparing Offline Max Frac Branch and Strong Branching Experieneces
+results 14: p50, Offline Learning ~100 Episodes
+- Comparing Offline Max Frac Branch and Strong Branching Experieneces

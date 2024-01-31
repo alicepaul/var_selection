@@ -43,6 +43,7 @@ class Node:
 
         # Each node will store it's children's nodes and current state
         self.node_key = node_key
+        self.opt_gap = 0
         self.parent_key = None
         self.is_leaf = True
         self.left = None

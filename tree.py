@@ -453,6 +453,9 @@ class tree():
         old_gap = self.optimality_gap
         self.optimality_gap = (self.best_int - self.lower_bound) / self.lower_bound
 
+        # Update Node optimality Gap
+        branch_node.opt_gap = old_gap - self.optimality_gap
+
         # Update stats
         self.tree_stats = self.get_tree_stats()
 
@@ -519,7 +522,7 @@ class tree():
             node.is_leaf = True
 
         return node
-
+    
     def get_state_pairs(self, node):
         '''
         Recursively collect tree edges, parent and child states pairs
@@ -534,24 +537,22 @@ class tree():
         if not node:
             return pairs
 
+        # Function to categorize rewards inline
+        categorize_reward = lambda opt_gap: 1 if 0 < opt_gap <= 0.05 else 2 if 0.05 < opt_gap <= 0.15 else 3 if opt_gap > 0.15 else -1
+
         # Check left child
         if node.left:
-            if node.left.is_leaf:
-                # If child is leaf reward is 0
-                pairs.append((node.state, node.left.state, 0))
-            else:
-                pairs.append((node.state, node.left.state, -1))
+            reward = 0 if node.left.is_leaf else categorize_reward(node.left.opt_gap)
+            pairs.append((node.state, node.left.state, reward))
             pairs.extend(self.get_state_pairs(node.left))
 
         # Check right child
         if node.right:
-            if node.right.is_leaf:
-                # If child is leaf reward is 0
-                pairs.append((node.state, node.right.state, 0))
-            else:
-                pairs.append((node.state, node.right.state, -1))
+            reward = 0 if node.right.is_leaf else categorize_reward(node.right.opt_gap)
+            pairs.append((node.state, node.right.state, reward))
             pairs.extend(self.get_state_pairs(node.right))
 
         return pairs
+
 
         
