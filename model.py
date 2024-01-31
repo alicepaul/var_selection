@@ -81,25 +81,8 @@ class Agent():
                     support = node.support
                     diff = [min(1-z[i], z[i]-0) for i in range(len(support))]
                     best_j = support[np.argmax(diff)]
-                
-                # else:
-                #     support = node.support
-                #     best_val = -math.inf
-                #     best_j = 0
-
-                #     for i in range(len(support)):
-                #         state = torch.tensor(np.array([tree.get_state(node.node_key, support[i])]), 
-                #                             dtype=torch.float)
-                #         # Agent estimates using policy network
-                #         val = self.policy_net(state) 
-                #         if val > best_val:
-                #             best_val = val
-                #             best_j = support[i]
             
                 node.state = tree.get_state(node.node_key, best_j)
-
-        # Drop current leaves (unvisited node)
-        # tree.drop_leaves(tree.root)
 
         # Set rewards
         total_reward = 0
@@ -214,6 +197,7 @@ class Agent():
         # Solving an instance using agent to make choices in tree
         fin_solving = T.start_root(None)
         iters = 0
+        tot_reward = 0
 
         while (fin_solving == False) and (iters < MAX_ITERS):
             # Select and perform an action
@@ -222,10 +206,10 @@ class Agent():
 
             iters += 1
 
-        # Store tree in memory and get total reward for tree
-        tot_reward = self.retrobranch(T)
-
         if training:
+            # Store tree in memory and get total reward for tree
+            tot_reward = self.retrobranch(T)
+
             # Optimize the target network using replay memory 
             # 128 iters after each episode
             for i in range(128):

@@ -4,7 +4,6 @@
 Defualt hyperparams: 
 - BATCH_SIZE 64 
 - TARGET_UPDATE 1
-- EPSILON_DECAY .99975 
 
 results 0: p10, 100 episodes
 
@@ -20,7 +19,6 @@ Defualt hyperparams:
 - 34 -> 32 -> 16 -> 1
 - BATCH_SIZE 64 
 - TARGET_UPDATE 1
-- EPSILON_DECAY .9999
 
 results 4: p50, 250 episodes 
 
@@ -37,7 +35,6 @@ Defualt hyperparams:
 - 34 -> 64 -> 16 -> 1
 - BATCH_SIZE 64 
 - TARGET_UPDATE 1
-- EPSILON_DECAY .9999
 
 results 8: p50, 500 episodes
 - Larger Network
@@ -59,9 +56,17 @@ results 12: p10, 500 episodes
 - 34 -> 64 -> 16 -> 1
 - BATCH_SIZE 64 
 - TARGET_UPDATE 1
-- EPSILON_DECAY .9999
 
 results 13: p10, Offline Learning ~200 Episodes
 - Comparing Offline Max Frac Branch and Strong Branching Experieneces
 results 14: p50, Offline Learning ~100 Episodes
 - Comparing Offline Max Frac Branch and Strong Branching Experieneces
+
+## Round 4 -- Using Continuous Rewards
+- 34 -> 64 -> 16 -> 1
+- BATCH_SIZE 64
+- TARGET_UPDATE 1
+
+results 14: p10, 100 Episodes
+results 15: p50, 25 Episodes
+- Testing p10 Saved Model on p50 setting
