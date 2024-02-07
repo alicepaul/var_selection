@@ -89,8 +89,15 @@ class Agent():
 
         # Call tree function to create all state to state pairs
         state_pairs = tree.get_state_pairs(tree.root)
+
+        # Sample 128 state pairs if there are more than 128, otherwise use all
+        sample_size = 128
+        if len(state_pairs) > sample_size:
+            sampled_pairs = random.sample(state_pairs, sample_size)
+        else:
+            sampled_pairs = state_pairs
         
-        for prev, curr, r in state_pairs:
+        for prev, curr, r in sampled_pairs:
             total_reward += r
 
             # Add state pairs and reward to memory 
@@ -189,13 +196,9 @@ class Agent():
         self.optimizer.step()
 
 
-    def RL_solve(self, x, y, l0, l2, m, training=True):
-        # Initialize Tree
-        p = Tree.Problem(x,y,l0,l2, m)
-        T = Tree.tree(p)
-
+    def RL_solve(self, T:Tree, training=True): # Give it a Tree
         # Solving an instance using agent to make choices in tree
-        fin_solving = T.start_root(None)
+        fin_solving = T.start_root()
         iters = 0
         tot_reward = 0
 
@@ -212,7 +215,7 @@ class Agent():
 
             # Optimize the target network using replay memory 
             # 128 iters after each episode
-            for i in range(128):
+            for i in range(16):
                 self.replay_memory()
 
             # Update number of episodes Agent has played

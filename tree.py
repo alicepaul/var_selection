@@ -192,22 +192,14 @@ class tree():
         self.lower_bound = None             # Minimum relaxation value of all nodes
         self.initial_optimality_gap = None  # Initial optimality gap from root node
         self.optimality_gap = None          # Current optimality gap
-        self.int_tol = problem.int_tol
-        self.gap_tol = problem.gap_tol
         self.root = None
 
-    def start_root(self, warm_start):
-        # Initializes the nodes with a root node
-        # Use warm start for upper bound
-        if (warm_start is not None):
-            support = np.nonzero(warm_start)[0]
-            self.best_int_primal, self.best_int_beta = self.problem.upper_bound_solve(root_node, support)
-
+    def start_root(self):
         # Initialize root node
         root_node = Node(parent=None, node_key='root_node',zlb=[], zub=[])
         self.active_nodes['root_node'] = root_node
         self.all_nodes['root_node'] = root_node
-        self.problem.lower_solve(root_node, solver='l1cd', rel_tol= 1e-4, mio_gap=1e-4,int_tol=self.int_tol)
+        self.problem.lower_solve(root_node, solver='l1cd', rel_tol= 1e-4, mio_gap=1e-4,int_tol=self.problem.int_tol)
         self.problem.upper_solve(root_node)
 
         # Update bounds and opt gap
@@ -225,7 +217,7 @@ class tree():
         self.root = self.active_nodes['root_node']
 
         # Return if done
-        if self.int_sol(root_node) or (self.optimality_gap <= self.gap_tol):
+        if self.int_sol(root_node) or (self.optimality_gap <= self.problem.gap_tol):
             return(True)
         return(False)
 
@@ -261,8 +253,7 @@ class tree():
                                self.lower_bound,
                                self.best_int,
                                self.initial_optimality_gap,
-                               self.optimality_gap])
-                               
+                               self.optimality_gap])    
         return(tree_stats)
 
     def get_node_stats(self, node_key):
@@ -329,6 +320,7 @@ class tree():
                   self.tree_stats,
                   self.get_node_stats(node_key),
                   self.get_var_stats(node_key, j)))
+
         return(state)
 
     def get_frac_branchs(self):
@@ -362,10 +354,9 @@ class tree():
         # Check if within tolerance to an integer solution
         for i in node.support:
             if i not in node.zlb and i not in node.zub:
-                # beta_i = node.primal_beta[node.support.index(i)]
                 z_i = node.z[node.support.index(i)]
-                residual = min(z_i, 1-z_i)
-                if residual > self.int_tol:
+                residual = min(z_i, 1-z_i) 
+                if residual > self.problem.int_tol:
                     return(False)
         return(True)
 
@@ -389,7 +380,7 @@ class tree():
     def solve_node(self, node_key):
         # Solves a node with CD and updates upper bound 
         curr_node = self.active_nodes[node_key]
-        self.problem.lower_solve(curr_node,solver='l1cd', rel_tol=1e-4, mio_gap=0,int_tol=self.int_tol)
+        self.problem.lower_solve(curr_node,solver='l1cd', rel_tol=1e-4, mio_gap=0,int_tol=self.problem.int_tol)
         
         # Update upper bound by rounding soln
         curr_upper_bound = self.problem.upper_solve(curr_node)
@@ -460,13 +451,13 @@ class tree():
         self.tree_stats = self.get_tree_stats()
 
         # Return True if solved or within tolerance and False otherwise
-        if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.gap_tol):
+        if (len(self.active_nodes) == 0) or (self.optimality_gap <= self.problem.gap_tol):
             return(True, old_gap, self.optimality_gap)
         
         return(False, old_gap, self.optimality_gap)
 
     def branch_and_bound(self, branch="max"):
-        self.start_root(None)
+        self.start_root()
 
         fin_solving = False
         iters = 0

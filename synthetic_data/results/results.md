@@ -67,6 +67,14 @@ results 14: p50, Offline Learning ~100 Episodes
 - BATCH_SIZE 64
 - TARGET_UPDATE 1
 
-results 14: p10, 100 Episodes
-results 15: p50, 25 Episodes
-- Testing p10 Saved Model on p50 setting
+results 15: p10, 100 Episodes
+results 16: p50, 500 Episodes
+results 17: p50, 500 Episodes 
+
+## Round 4 -- Only Adding Sample of 128 State Pairs to Memory
+- 34 -> 64 -> 16 -> 1
+- BATCH_SIZE 64
+- TARGET_UPDATE 1
+- 16 Iterations of Learning after each episode
+
+results 18: p10, 100 Episodes
