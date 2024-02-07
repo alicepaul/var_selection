@@ -45,9 +45,9 @@ class Memory(object):
 
 # Agent that performs, remembers and learns actions
 class Agent():
-    def __init__(self):
-        self.policy_net = DQN(34)
-        self.target_net = DQN(34)
+    def __init__(self, n):
+        self.policy_net = DQN(n)
+        self.target_net = DQN(n)
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.memory = Memory(10000)
         self.episodes_played = 0
