@@ -209,13 +209,13 @@ class Agent():
 
             iters += 1
 
-        if training:
-            # Store tree in memory and get total reward for tree
-            tot_reward = self.retrobranch(T)
+        # Store tree in memory and get total reward for tree
+        tot_reward = self.retrobranch(T)
 
+        if training:
             # Optimize the target network using replay memory 
-            # 128 iters after each episode
-            for i in range(16):
+            # 8 iters after each episode
+            for i in range(8):
                 self.replay_memory()
 
             # Update number of episodes Agent has played

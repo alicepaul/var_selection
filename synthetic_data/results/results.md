@@ -78,3 +78,8 @@ results 17: p50, 500 Episodes
 - 16 Iterations of Learning after each episode
 
 results 18: p10, 100 Episodes
+results 19: p50, 250 Episodes
+results 20: p50, 100 Episodes (8 iters)
+
+results 21: p50, 25 Episodes (Testing Model 20)
+results 22: p10, 25 Episodes (Testing Model 20)

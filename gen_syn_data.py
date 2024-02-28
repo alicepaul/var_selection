@@ -95,9 +95,9 @@ def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2
                support_mat, delimiter=",")
 
 
-# make_syn_data(n_mat=1,n=10**3, p=50, batch_n=3, seed=2022)
+make_syn_data(n_mat=5,n=10**3, p=10, batch_n=5, seed=2022)
 
-if __name__ == "__main__":
-	make_syn_data(n_mat=int(sys.argv[1]), p=int(sys.argv[2]), rho=float(sys.argv[3]), \
-	snr=float(sys.argv[4]), batch_n = int(sys.argv[5]), seed=2022)
+# if __name__ == "__main__":
+# 	make_syn_data(n_mat=int(sys.argv[1]), p=int(sys.argv[2]), rho=float(sys.argv[3]), \
+# 	snr=float(sys.argv[4]), batch_n = int(sys.argv[5]), seed=2022)
 
