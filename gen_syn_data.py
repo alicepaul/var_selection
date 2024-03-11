@@ -14,9 +14,8 @@ import sys
 import numpy as np
 from numpy.random import multivariate_normal, normal
 import os
-import subprocess
 
-def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2022):
+def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2022, binary_prop=0):
     """Generate a synthetic regression dataset: y, x, and b.
     The data matrix x is sampled from a multivariate gaussian with exponential 
     correlation between columns.
@@ -37,25 +36,31 @@ def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2
     Returns:
         None: x, y, and b are all saved to csv files. 
     """
-    
-    #xy_out_dir = f'synthetic_data/{p_sub_dir}/batch_{batch_n}'
+
     xy_out_dir = f'synthetic_data/batch_{batch_n}'
     os.makedirs(xy_out_dir, exist_ok=True)
 
     np.random.seed(seed)
     supp_size = int(0.1*p)
     support_mat = np.zeros((n_mat,supp_size))
+    binary_count = int(p * binary_prop)  # Number of binary features
 
     for i in range(n_mat):
-     
         # Make x matrix
         cov_mat = np.zeros((p,p))
         for row in range(p):
             for col in range(p):
                 cov_mat[row, col] = rho**np.abs(row-col)
         x = multivariate_normal(mean=np.zeros(p), cov=cov_mat, size=n)
-        x_centered = x - np.mean(x, axis = 0)
-        x_normalized =  x_centered / np.linalg.norm(x_centered, axis = 0)
+
+        # Convert a subset of x to binary
+        binary_indices = np.random.choice(p, binary_count, replace=False)
+        for idx in binary_indices:
+            median_val = np.median(x[:, idx])
+            x[:, idx] = (x[:, idx] > median_val).astype(int)
+
+        x_centered = x - np.mean(x, axis=0)
+        x_normalized = x_centered / np.linalg.norm(x_centered, axis=0)
         
         # Make y
         unshuffled_support = [i for i in range(p) if i % (p/supp_size) == 0]
@@ -94,10 +99,6 @@ def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2
     np.savetxt(f'{b_out_dir}/support_corr{rho}_snr{snr}_batch{batch_n}.csv', \
                support_mat, delimiter=",")
 
-
-make_syn_data(n_mat=5,n=10**3, p=10, batch_n=5, seed=2022)
-
-# if __name__ == "__main__":
-# 	make_syn_data(n_mat=int(sys.argv[1]), p=int(sys.argv[2]), rho=float(sys.argv[3]), \
-# 	snr=float(sys.argv[4]), batch_n = int(sys.argv[5]), seed=2022)
-
+if __name__ == "__main__":
+	make_syn_data(n_mat=int(sys.argv[1]), p=int(sys.argv[2]), rho=float(sys.argv[3]), \
+	snr=float(sys.argv[4]), batch_n = int(sys.argv[5]), seed=2022)
