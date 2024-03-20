@@ -7,10 +7,10 @@ This repository contains ongoing work focusing on Reinforcement Learning for Bes
 - `synthetic_data/`: 
     - `batch_n/`: Batch of Synthetic Data Generated
     - `models/`: Stores Trained Models
-    - `results/`: Results, `results.md` gives an overview for each file
+    - `results/`: Experiment results, `results.md` gives an overview for each file
 - `SCP/`: Related files for set-covering problem, using shared problem structure and class for variable selection.
 - `gen_syn_data.py`: Script for generating synthetic data for variable selection.
-- `main.py`: Main script to run algorithms, including the RL agent, on synthetic data. Outputs stored in synthetic_data/results and models in synthetic_data/models.
+- `Main.py`: Main script to run algorithms, including the RL agent, on synthetic data. Outputs stored in synthetic_data/results and models in synthetic_data/models.
 - `Node.py`: Code for the Node class/data structure within the tree.
 - `Tree.py`: Contains the problem and tree classes used for the variable selection task.
 - `Tuning.ipynb`: Jupyter Notebook for model tuning, exploring the B&B algorithm, and evaluating results.

@@ -5,11 +5,6 @@
 # in the package 'l0bnb', which is under an MIT License, 
 # copyright (c) 2020 [Hussein Hazimeh, and Rahul Mazumder, Ali Saab].
 
-# Variable settings: 
-# Bertsimas et al.  use: 
-# supp_size in {5,10}, rho in {0.5, 0.8, 0.9}?
-# Hazimeh et al, use n = 10^3, p = {10^3, 10^4, 10^5, 10^6}, snr = 5
-
 import sys
 import numpy as np
 from numpy.random import multivariate_normal, normal
@@ -37,7 +32,7 @@ def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2
         None: x, y, and b are all saved to csv files. 
     """
 
-    xy_out_dir = f'synthetic_data/batch_{batch_n}'
+    xy_out_dir = f'synthetic_data/{batch_n}'
     os.makedirs(xy_out_dir, exist_ok=True)
 
     np.random.seed(seed)
@@ -89,7 +84,7 @@ def make_syn_data(n_mat=10**3, n=10**3, p=100, rho=0.5, snr=5, batch_n=1, seed=2
         # the log base 10 of the actual values
     
         # Make file name
-        filetag = f'gen_syn_n{int(np.log10(n))}_p{p}_corr{rho}_snr{snr}_seed{seed}' 
+        filetag = f'gen_syn_n{int(np.log10(n))}_p{p}_corr{rho}_snr{snr}_b{binary_prop}_seed{seed}' 
         np.savetxt(f'{xy_out_dir}/x_{filetag}_{i}.csv', x_shuffled,delimiter=",")
         np.savetxt(f'{xy_out_dir}/y_{filetag}_{i}.csv', y_normalized,delimiter=",")
 
