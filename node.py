@@ -74,8 +74,8 @@ class Node:
             self.is_leaf = False
 
     def __str__(self):
-        return f'level: {self.level}, lower cost: {self.primal_value}, ' \
-            f'upper cost: {self.upper_bound}'
+        return f'level: {self.level}, lower bound: {self.primal_value}, ' \
+            f'upper bound: {self.upper_bound}'
 
     def __repr__(self):
         return self.__str__()

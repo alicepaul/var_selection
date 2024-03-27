@@ -241,10 +241,10 @@ class tree():
                 - number of steps taken
                 - number of active nodes
                 - number of candidate solution variables
-                - lower bound
-                - best integer solution
+                - global lower bound
+                - best integer solution (global upper bound)
                 - initial optimality gap
-                - current optimality gpa
+                - current optimality gap
         """
         # Returns summary statisitics that describe the set of all active nodes
         tree_stats = np.array([self.step_counter,
@@ -267,8 +267,8 @@ class tree():
                 - node specific primal value
                 - node depth level
                 - legth of support
-                - whether the node has the lower bound
-                - whether the node has the upper bound
+                - whether the node has the global lower bound
+                - whether the node has the global upper bound
         """
         # Returns summary stats for a given node
         node = self.all_nodes[node_key]
@@ -290,9 +290,9 @@ class tree():
 
         Returns:
             numpy.ndarray: Node and Variable specific statistics.
-                - primal beta
-                - z value
-                - upper z value 
+                - primal beta  (lower bound)
+                - z value 
+                - upper z value  (upper bound)
         """
         node = self.all_nodes[node_key]
 
@@ -361,7 +361,7 @@ class tree():
         return(True)
 
     def prune(self, node_keys):
-        # Iterate through node keys to find those that aren't active
+        # Iterate through node keys to find nodes with lower bound above global upper bound
         for node_key in node_keys:
             if self.active_nodes[node_key].primal_value > self.best_int:
                 del self.active_nodes[node_key]
